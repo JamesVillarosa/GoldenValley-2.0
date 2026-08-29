@@ -1,0 +1,33 @@
+-- Daily push notification schedule. Left commented because it needs the
+-- deployed Edge Function's project URL and a service-role bearer token,
+-- neither of which exist until this project is provisioned on Supabase.
+-- Once deployed, uncomment and fill in the two placeholders below, then run
+-- this migration (or paste it into the SQL editor).
+
+-- create extension if not exists pg_cron;
+-- create extension if not exists pg_net;
+--
+-- select cron.schedule(
+--   'notify-due-customers-daily',
+--   '0 8 * * *', -- 08:00 server time
+--   $$
+--   select net.http_post(
+--     url := 'https://<project-ref>.supabase.co/functions/v1/notify-due-customers',
+--     headers := jsonb_build_object(
+--       'Authorization', 'Bearer <service-role-key>',
+--       'Content-Type', 'application/json'
+--     ),
+--     body := '{}'::jsonb
+--   );
+--   $$
+-- );
+
+-- Recompute every customer's schedule daily as well, so a customer can drift
+-- from on-schedule into due-soon/overdue purely from the calendar moving,
+-- even with no new transaction. Same prerequisite: uncomment once deployed.
+
+-- select cron.schedule(
+--   'recompute-customer-schedules-daily',
+--   '0 7 * * *',
+--   $$ select recompute_all_customer_schedules(); $$
+-- );
