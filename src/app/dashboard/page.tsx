@@ -1,10 +1,21 @@
 import Link from "next/link";
 import { eachDayOfInterval, eachMonthOfInterval, format, parseISO } from "date-fns";
-import { getStats } from "@/lib/actions/reports";
+import { getExpenses, getSalaries, getStats } from "@/lib/actions/reports";
 import { manilaToday, resolveRange } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
+import { salaryOf } from "@/lib/salary";
+import { ExpensePanel } from "@/components/expense-panel";
 import { PageHeader } from "@/components/page-header";
 import { PeriodNav } from "@/components/period-nav";
+
+function Line({ label, value, sub = false }: { label: string; value: string; sub?: boolean }) {
+  return (
+    <div className={`flex items-baseline justify-between gap-3 px-4 ${sub ? "py-1 pl-8 text-ink-muted" : "pt-2.5 pb-1"}`}>
+      <dt>{label}</dt>
+      <dd className={`num ${sub ? "" : "font-semibold"}`}>{value}</dd>
+    </div>
+  );
+}
 
 function Figure({ label, value }: { label: string; value: string }) {
   return (
@@ -18,7 +29,25 @@ function Figure({ label, value }: { label: string; value: string }) {
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const { p, d } = await searchParams;
   const range = resolveRange(p as string, d as string);
-  const stats = await getStats(range.from, range.to, range.unit);
+  const before = resolveRange(range.period, range.prev);
+  const [stats, previous, salaries, expenses] = await Promise.all([
+    getStats(range.from, range.to, range.unit),
+    getStats(before.from, before.to, before.unit),
+    getSalaries(range.from, range.to),
+    getExpenses(range.from, range.to),
+  ]);
+
+  const sales = Number(stats.sales);
+  const driverPay = salaries.reduce((sum, d) => sum + salaryOf(d).total, 0);
+  const profit = sales - Number(stats.expenses) - driverPay;
+  const diff = stats.deliveries - previous.deliveries;
+  const WHEN = { day: "today", week: "this week", month: "this month", year: "this year" } as const;
+  const current = range.to >= manilaToday();
+  const when = current ? WHEN[range.period] : range.period === "day" ? `on ${range.label}` : `in ${range.label}`;
+  const compare =
+    diff === 0
+      ? `Same as the ${range.period} before`
+      : `${Math.abs(diff)} ${diff > 0 ? "more" : "fewer"} than the ${range.period} before`;
 
   const interval = { start: parseISO(range.from), end: parseISO(range.to) };
   const byBucket = new Map(stats.series.map((s) => [s.bucket, Number(s.gallons)]));
@@ -46,22 +75,30 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       <PeriodNav path="/dashboard" range={range} />
 
       <div className="flex flex-col gap-6">
-        <dl className="card overflow-hidden">
-          <div className="px-4 pt-4 pb-3">
-            <dt className="text-sm text-ink-muted">Gallons delivered</dt>
-            <dd className="num text-[2.5rem] leading-none font-semibold text-deep-blue">
-              {Number(stats.gallons).toLocaleString("en-PH")}
-            </dd>
+        <section aria-labelledby="summary-title" className="card overflow-hidden">
+          <div className="px-4 pt-4 pb-4">
+            <h2 id="summary-title" className="font-display text-[1.375rem] leading-snug font-semibold">
+              You made <span className="num text-deep-blue">{stats.deliveries}</span>{" "}
+              {stats.deliveries === 1 ? "sale" : "sales"} {when}
+            </h2>
+            <p className="mt-1 text-[0.9375rem] text-ink-muted">
+              {gal(stats.gallons)} to {stats.customers} {stats.customers === 1 ? "customer" : "customers"}. {compare}.
+            </p>
           </div>
-          <div className="grid grid-cols-2 divide-x divide-border border-t border-border">
-            <Figure label="Deliveries" value={String(stats.deliveries)} />
-            <Figure label="Customers served" value={String(stats.customers)} />
-          </div>
-          <div className="grid grid-cols-2 divide-x divide-border border-t border-border">
-            <Figure label="Sales" value={peso(stats.sales)} />
-            <Figure label="Unpaid" value={peso(stats.unpaid)} />
-          </div>
-        </dl>
+          <dl className="border-t border-border text-[0.9375rem]">
+            <Line label="Sales" value={peso(sales)} />
+            <Line label="Collected" value={peso(sales - Number(stats.unpaid))} sub />
+            <Line label="Not yet paid (utang)" value={peso(stats.unpaid)} sub />
+            <Line label="Expenses" value={`- ${peso(stats.expenses)}`} />
+            <Line label="Driver salary" value={`- ${peso(driverPay)}`} />
+            <div className="flex items-baseline justify-between gap-3 border-t border-border bg-mist px-4 py-3">
+              <dt className="font-display font-semibold">You keep</dt>
+              <dd className={`num text-2xl font-semibold ${profit < 0 ? "text-danger-ink" : "text-success-ink"}`}>
+                {peso(profit)}
+              </dd>
+            </div>
+          </dl>
+        </section>
 
         {range.period !== "day" && (
           <section aria-labelledby="chart-title">
@@ -93,11 +130,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
         <section aria-labelledby="drivers-title">
           <h2 id="drivers-title" className="section-title pb-2">
-            By driver
+            Who delivered
           </h2>
           {stats.by_driver.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border px-6 py-8 text-center text-[0.9375rem] text-ink-muted">
-              No deliveries in this period. Log one on the Deliver tab.
+              No sales in this period. Log one on the Deliver tab.
             </p>
           ) : (
             <ul className="card divide-y divide-border">
@@ -113,7 +150,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                     style={{ width: `${Math.max(2, (Number(driver.gallons) / topDriver) * 100)}%` }}
                   />
                   <p className="mt-1.5 text-sm text-ink-muted">
-                    {driver.deliveries} {driver.deliveries === 1 ? "delivery" : "deliveries"}
+                    {driver.deliveries} {driver.deliveries === 1 ? "sale" : "sales"}
                   </p>
                 </li>
               ))}
@@ -138,6 +175,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             </ol>
           </section>
         )}
+
+        <ExpensePanel expenses={expenses} today={today} />
 
         <section aria-labelledby="now-title">
           <h2 id="now-title" className="section-title pb-2">
