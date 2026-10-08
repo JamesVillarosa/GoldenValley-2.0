@@ -1,7 +1,7 @@
 {
   "name": "Golden Valley",
-  "short_name": "GV",
-  "description": "Water delivery transaction tracker for Golden Valley.",
+  "short_name": "Golden Valley",
+  "description": "Deliveries, due customers and driver salary for Golden Valley water station.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

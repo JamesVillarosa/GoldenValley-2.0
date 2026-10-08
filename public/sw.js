@@ -1,5 +1,7 @@
-const CACHE_NAME = "golden-valley-shell-v1";
-const APP_SHELL = ["/", "/dashboard", "/salary", "/customers", "/manifest.json"];
+const CACHE_NAME = "golden-valley-shell-v2";
+// Pages sit behind the PIN, so only public files are precached; visited pages
+// are cached as they load (network first).
+const APP_SHELL = ["/manifest.json", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -47,14 +49,14 @@ self.addEventListener("push", (event) => {
       body: payload.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      data: { url: payload.url || "/dashboard" },
+      data: { url: payload.url || "/due" },
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/dashboard";
+  const url = event.notification.data?.url || "/due";
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {

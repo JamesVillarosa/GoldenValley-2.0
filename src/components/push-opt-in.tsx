@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Bell, BellRinging } from "@phosphor-icons/react/dist/ssr";
 import { getVapidPublicKey, saveSubscription } from "@/lib/actions/push";
+import { Button } from "@/components/ui/button";
 
 function urlBase64ToUint8Array(base64: string) {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -21,18 +22,21 @@ function isPushSupported() {
 }
 
 export function PushOptIn() {
-  const [supported] = useState(isPushSupported);
+  // null until mounted: the server cannot know, and guessing breaks hydration.
+  const [supported, setSupported] = useState<boolean | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!supported) return;
+    const ok = isPushSupported();
+    setSupported(ok);
+    if (!ok) return;
 
     navigator.serviceWorker.ready.then(async (registration) => {
       const subscription = await registration.pushManager.getSubscription();
       setEnabled(!!subscription);
     });
-  }, [supported]);
+  }, []);
 
   async function handleEnable() {
     setLoading(true);
@@ -71,17 +75,29 @@ export function PushOptIn() {
     }
   }
 
-  if (!supported || enabled) return null;
+  if (supported === null) return <div className="h-12" />;
+
+  if (!supported) {
+    return (
+      <p className="text-sm text-ink-muted">
+        This browser cannot show notifications. Open the app in Chrome and add it to the home screen.
+      </p>
+    );
+  }
+
+  if (enabled) {
+    return (
+      <p className="flex items-center gap-2 font-medium text-success-ink">
+        <BellRinging size={18} weight="fill" />
+        Reminders are on for this phone
+      </p>
+    );
+  }
 
   return (
-    <button
-      type="button"
-      onClick={handleEnable}
-      disabled={loading}
-      className="flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-deep-blue)] transition-transform duration-150 active:scale-[0.97]"
-    >
-      {loading ? <BellRinging size={16} /> : <Bell size={16} />}
-      Reminders
-    </button>
+    <Button variant="secondary" onClick={handleEnable} disabled={loading} className="w-full">
+      <Bell size={18} />
+      {loading ? "Turning on..." : "Turn on reminders"}
+    </Button>
   );
 }
