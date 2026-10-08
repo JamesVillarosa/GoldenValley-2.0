@@ -1,25 +1,40 @@
-import { getSalaries } from "@/lib/actions/reports";
+import { getPayouts, getSalaries } from "@/lib/actions/reports";
 import { resolveRange } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
 import { salaryOf } from "@/lib/salary";
 import { DriverEditor } from "@/components/driver-editor";
+import { PayoutControl } from "@/components/payout-control";
 import { PageHeader } from "@/components/page-header";
 import { PeriodNav } from "@/components/period-nav";
 
 export default async function SalaryPage({ searchParams }: PageProps<"/salary">) {
   const { p, d } = await searchParams;
   const range = resolveRange(p === "year" ? "month" : (p as string), d as string);
-  const drivers = await getSalaries(range.from, range.to);
+  const [drivers, paid, history] = await Promise.all([
+    getSalaries(range.from, range.to),
+    getPayouts(range.from, range.to),
+    getPayouts(undefined, undefined, 60),
+  ]);
   const payroll = drivers.reduce((sum, driver) => sum + salaryOf(driver).total, 0);
+  const paidTotal = paid.reduce((sum, p) => sum + Number(p.amount), 0);
+  const unpaid = Math.max(0, payroll - paidTotal);
 
   return (
     <div className="page">
-      <PageHeader title="Salary" sub={`Total payroll ${peso(payroll)}`} />
+      <PageHeader title="Salary" sub={
+          payroll === 0
+            ? "No salary earned in this period"
+            : unpaid > 0
+              ? `${peso(payroll)} earned, ${peso(unpaid)} still to pay`
+              : `${peso(payroll)} earned, all paid`
+        } />
       <PeriodNav path="/salary" range={range} periods={["day", "week", "month"]} />
 
       <ul className="flex flex-col gap-4">
         {drivers.map((driver) => {
           const pay = salaryOf(driver);
+          const mine = paid.filter((p) => p.driver_id === driver.id);
+          const remaining = pay.total - mine.reduce((sum, p) => sum + Number(p.amount), 0);
           return (
             <li key={driver.id} className="card">
               <div className="flex items-baseline justify-between gap-3 px-4 pt-4">
@@ -59,6 +74,14 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
                 </details>
               )}
 
+              <PayoutControl
+                driverId={driver.id}
+                from={range.from}
+                to={range.to}
+                remaining={remaining}
+                paidInPeriod={mine}
+                history={history.filter((p) => p.driver_id === driver.id)}
+              />
               <DriverEditor driver={driver} canRemove={drivers.length > 1} />
             </li>
           );
