@@ -1,70 +1,81 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServiceClient } from "@/lib/supabase/server";
+import { db } from "@/lib/supabase/server";
 import type { Transaction } from "@/lib/supabase/types";
 
 export interface SaveTransactionInput {
   customerId: string;
   driverId: string;
   gallons: number;
+  paid: boolean;
 }
 
-export async function saveTransaction(
-  input: SaveTransactionInput
-): Promise<Transaction> {
+export async function saveTransaction(input: SaveTransactionInput): Promise<Transaction> {
   if (!input.customerId) throw new Error("Pick a customer first.");
   if (!Number.isFinite(input.gallons) || input.gallons <= 0) {
     throw new Error("Gallons must be a positive number.");
   }
 
-  const supabase = createServiceClient();
+  const supabase = await db();
+  // Price is copied onto the row so later price changes never rewrite history.
+  const { data: settings, error: settingsError } = await supabase
+    .from("settings")
+    .select("price_per_gallon")
+    .single();
+  if (settingsError) throw new Error(settingsError.message);
+
   const { data, error } = await supabase
     .from("transactions")
     .insert({
       customer_id: input.customerId,
       driver_id: input.driverId,
       gallons: input.gallons,
+      unit_price: settings.price_per_gallon,
+      paid: input.paid,
     })
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
-
-  revalidatePath("/");
-  revalidatePath("/dashboard");
-  revalidatePath("/salary");
-  revalidatePath(`/customers/${input.customerId}`);
+  revalidatePath("/", "layout");
   return data;
 }
 
-export async function deleteTransaction(
-  transactionId: string,
-  customerId: string
-): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("transactions")
-    .delete()
-    .eq("id", transactionId);
-
+export async function deleteTransaction(transactionId: string): Promise<void> {
+  const supabase = await db();
+  const { error } = await supabase.from("transactions").delete().eq("id", transactionId);
   if (error) throw new Error(error.message);
-
-  revalidatePath("/");
-  revalidatePath("/dashboard");
-  revalidatePath("/salary");
-  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/", "layout");
 }
 
-export async function getCustomerTransactions(
-  customerId: string
-): Promise<Transaction[]> {
-  const supabase = createServiceClient();
+export async function setPaid(transactionId: string, paid: boolean): Promise<void> {
+  const supabase = await db();
+  const { error } = await supabase.from("transactions").update({ paid }).eq("id", transactionId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
+/** Customer paid off everything they owe. */
+export async function settleCustomer(customerId: string): Promise<void> {
+  const supabase = await db();
+  const { error } = await supabase
+    .from("transactions")
+    .update({ paid: true })
+    .eq("customer_id", customerId)
+    .eq("paid", false);
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
+export async function getCustomerTransactions(customerId: string): Promise<Transaction[]> {
+  const supabase = await db();
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
     .eq("customer_id", customerId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(60);
 
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -74,80 +85,19 @@ export interface DriverDelivery extends Transaction {
   customerName: string;
 }
 
-export async function getDriverDeliveries(
-  driverId: string,
-  date: string
-): Promise<DriverDelivery[]> {
-  const supabase = createServiceClient();
+export async function getDriverDeliveries(driverId: string, date: string): Promise<DriverDelivery[]> {
+  const supabase = await db();
   const { data, error } = await supabase
     .from("transactions")
     .select("*, customers(name)")
     .eq("driver_id", driverId)
-    .is("settled_at", null)
-    .gte("created_at", `${date}T00:00:00`)
-    .lte("created_at", `${date}T23:59:59.999`)
+    .eq("delivered_on", date)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((row) => {
-    const customers = row.customers as unknown as
-      | { name: string }
-      | { name: string }[]
-      | null;
-    const customerName = Array.isArray(customers)
-      ? customers[0]?.name
-      : customers?.name;
-    return { ...row, customerName: customerName ?? "Unknown customer" };
-  });
-}
-
-export async function resetDriverDay(
-  driverId: string,
-  date: string
-): Promise<number> {
-  const supabase = createServiceClient();
-
-  const { data: driver, error: driverError } = await supabase
-    .from("drivers")
-    .select("name")
-    .eq("id", driverId)
-    .single();
-  if (driverError) throw new Error(driverError.message);
-
-  const deliveries = await getDriverDeliveries(driverId, date);
-  if (deliveries.length === 0) return 0;
-
-  const { error: logError } = await supabase.from("delivery_log").insert(
-    deliveries.map((tx) => ({
-      transaction_id: tx.id,
-      customer_id: tx.customer_id,
-      customer_name: tx.customerName,
-      driver_id: driverId,
-      driver_name: driver.name,
-      gallons: tx.gallons,
-      delivered_at: tx.created_at,
-    }))
-  );
-  if (logError) throw new Error(logError.message);
-
-  // Mark settled rather than delete: delivery history stays intact for the
-  // customer-interval algorithm and the customer detail page. Salary and the
-  // entry screen's "Today" list only count unsettled rows, so this is what
-  // makes those views read as reset.
-  const { error } = await supabase
-    .from("transactions")
-    .update({ settled_at: new Date().toISOString() })
-    .in(
-      "id",
-      deliveries.map((tx) => tx.id)
-    );
-
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/");
-  revalidatePath("/dashboard");
-  revalidatePath("/salary");
-  revalidatePath("/customers");
-  return deliveries.length;
+  return (data ?? []).map(({ customers, ...row }) => ({
+    ...row,
+    customerName: (customers as unknown as { name: string } | null)?.name ?? "Unknown customer",
+  }));
 }

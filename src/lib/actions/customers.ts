@@ -1,14 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServiceClient } from "@/lib/supabase/server";
+import { manilaToday, shiftDays } from "@/lib/dates";
+import { db } from "@/lib/supabase/server";
 import type { Customer } from "@/lib/supabase/types";
 
-export async function searchCustomers(
-  driverId: string,
-  query: string
-): Promise<Customer[]> {
-  const supabase = createServiceClient();
+export async function searchCustomers(driverId: string, query: string): Promise<Customer[]> {
+  const supabase = await db();
   let request = supabase
     .from("customers")
     .select("*")
@@ -16,87 +14,88 @@ export async function searchCustomers(
     .order("name", { ascending: true })
     .limit(20);
 
-  if (query.trim()) {
-    request = request.ilike("name", `%${query.trim()}%`);
-  }
+  if (query.trim()) request = request.ilike("name", `%${query.trim()}%`);
 
   const { data, error } = await request;
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
-export async function getAllCustomers(query: string): Promise<Customer[]> {
-  const supabase = createServiceClient();
-  let request = supabase
-    .from("customers")
-    .select("*")
-    .order("name", { ascending: true });
-
-  if (query.trim()) {
-    request = request.ilike("name", `%${query.trim()}%`);
-  }
-
-  const { data, error } = await request;
-  if (error) throw new Error(error.message);
-  return data ?? [];
-}
-
-export async function getDueCustomers(): Promise<Customer[]> {
-  const supabase = createServiceClient();
+export async function getAllCustomers(): Promise<Customer[]> {
+  const supabase = await db();
   const { data, error } = await supabase
     .from("customers")
     .select("*")
-    .in("status", ["due_soon", "overdue"])
-    .order("expected_next_date", { ascending: true });
+    .order("name", { ascending: true })
+    // PostgREST caps a response at 1000 rows by default; the business has ~400.
+    .limit(1000);
 
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/** Customers whose learned schedule says they order today or tomorrow, plus
+ * those who are late. Anything more than two weeks late is `lapsed`: worth a
+ * follow-up call, but not part of today's load. */
+export async function getDueCustomers(): Promise<{ due: Customer[]; lapsed: Customer[] }> {
+  const supabase = await db();
+  const today = manilaToday();
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .lte("expected_next_date", shiftDays(today, 1))
+    .order("expected_next_date", { ascending: true })
+    .limit(1000);
+
+  if (error) throw new Error(error.message);
+  const cutoff = shiftDays(today, -14);
+  const rows: Customer[] = data ?? [];
+  return {
+    due: rows.filter((c) => c.expected_next_date! >= cutoff),
+    lapsed: rows.filter((c) => c.expected_next_date! < cutoff),
+  };
 }
 
 export async function getCustomer(customerId: string): Promise<Customer | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("id", customerId)
-    .maybeSingle();
-
+  const supabase = await db();
+  const { data, error } = await supabase.from("customers").select("*").eq("id", customerId).maybeSingle();
   if (error) throw new Error(error.message);
   return data;
 }
 
-export async function createCustomer(
-  driverId: string,
-  name: string
-): Promise<Customer> {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error("Customer name is required.");
-
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("customers")
-    .insert({ driver_id: driverId, name: trimmed })
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-  revalidatePath("/");
-  revalidatePath("/customers");
-  return data;
+export interface CustomerInput {
+  id?: string;
+  name: string;
+  driverId: string;
+  phone?: string;
+  address?: string;
+  containersOut?: number;
 }
 
-export async function updateManualInterval(
-  customerId: string,
-  days: number | null
-): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("customers")
-    .update({ manual_interval_days: days })
-    .eq("id", customerId);
+export async function saveCustomer(input: CustomerInput): Promise<Customer> {
+  const name = input.name.trim();
+  if (!name) throw new Error("Customer name is required.");
+  if (!input.driverId) throw new Error("Pick a driver for this customer.");
+  const containers = input.containersOut ?? 0;
+  if (!Number.isInteger(containers) || containers < 0) {
+    throw new Error("Containers must be a whole number, 0 or more.");
+  }
+
+  const row = {
+    name,
+    driver_id: input.driverId,
+    phone: input.phone?.trim() || null,
+    address: input.address?.trim() || null,
+    containers_out: containers,
+  };
+
+  const supabase = await db();
+  const request = input.id
+    ? supabase.from("customers").update(row).eq("id", input.id)
+    : supabase.from("customers").insert(row);
+  const { data, error } = await request.select("*").single();
 
   if (error) throw new Error(error.message);
-  revalidatePath("/customers");
-  revalidatePath(`/customers/${customerId}`);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
+  return data;
 }
