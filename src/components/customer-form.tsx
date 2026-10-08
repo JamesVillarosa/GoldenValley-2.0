@@ -10,20 +10,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Customer, Driver } from "@/lib/supabase/types";
 
-export function CustomerForm({ customer, drivers }: { customer?: Customer; drivers: Driver[] }) {
+export function CustomerForm({
+  customer,
+  drivers,
+  stationPrice,
+}: {
+  customer?: Customer;
+  drivers: Driver[];
+  stationPrice: number;
+}) {
   const router = useRouter();
   const [name, setName] = useState(customer?.name ?? "");
   const [phone, setPhone] = useState(customer?.phone ?? "");
   const [address, setAddress] = useState(customer?.address ?? "");
   const [driverId, setDriverId] = useState(customer?.driver_id ?? drivers[0]?.id ?? "");
   const [containers, setContainers] = useState(customer?.containers_out ?? 0);
+  const [price, setPrice] = useState(customer?.price_per_gallon?.toString() ?? "");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const saved = await saveCustomer({ id: customer?.id, name, phone, address, driverId, containersOut: containers });
+      const saved = await saveCustomer({
+        id: customer?.id,
+        name,
+        phone,
+        address,
+        driverId,
+        containersOut: containers,
+        pricePerGallon: price.trim() ? Number(price) : null,
+      });
       toast.success(customer ? "Customer saved" : "Customer added");
       router.replace(`/customers/${saved.id}`);
     } catch (error) {
@@ -65,6 +82,25 @@ export function CustomerForm({ customer, drivers }: { customer?: Customer; drive
           value={address}
           onChange={(e) => setAddress(e.target.value)}
         />
+      </div>
+      <div>
+        <label htmlFor="price" className="field-label">
+          Price per gallon (₱)
+        </label>
+        <Input
+          id="price"
+          type="number"
+          min={0}
+          step="any"
+          inputMode="decimal"
+          placeholder={`Station price, ${stationPrice}`}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          aria-describedby="price-help"
+        />
+        <p id="price-help" className="mt-1.5 text-sm text-ink-muted">
+          Leave blank to charge the station price.
+        </p>
       </div>
       <div>
         <span className="field-label">Delivered by</span>

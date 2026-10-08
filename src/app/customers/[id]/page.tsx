@@ -27,6 +27,8 @@ export default async function CustomerDetailPage({ params }: PageProps<"/custome
     ["Next expected", customer.expected_next_date ? format(parseISO(customer.expected_next_date), "EEE, MMM d") : "After first delivery"],
     ["Usual order", customer.usual_gallons != null ? `${customer.usual_gallons} gal` : "Unknown yet"],
     ["Containers lent", String(customer.containers_out)],
+    ["Price per gallon", customer.price_per_gallon != null ? peso(customer.price_per_gallon) : "Station price"],
+    ["Customer since", format(new Date(customer.created_at), "MMM yyyy")],
   ];
 
   return (

@@ -16,6 +16,8 @@ export interface Customer {
   address: string | null;
   driver_id: string;
   containers_out: number;
+  /** null = station price */
+  price_per_gallon: number | null;
   computed_interval_days: number | null;
   usual_gallons: number | null;
   balance: number;
@@ -27,11 +29,29 @@ export interface Customer {
 
 export interface Transaction {
   id: string;
-  customer_id: string;
-  driver_id: string;
+  /** null on a walk-in sale */
+  customer_id: string | null;
+  driver_id: string | null;
   gallons: number;
   unit_price: number;
   paid: boolean;
   delivered_on: string;
   created_at: string;
+}
+
+export interface Payout {
+  id: string;
+  driver_id: string;
+  period_from: string;
+  period_to: string;
+  amount: number;
+  paid_at: string;
+}
+
+export interface Expense {
+  id: string;
+  spent_on: string;
+  category: string;
+  amount: number;
+  note: string | null;
 }

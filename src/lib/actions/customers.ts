@@ -70,6 +70,8 @@ export interface CustomerInput {
   phone?: string;
   address?: string;
   containersOut?: number;
+  /** null or omitted = station price */
+  pricePerGallon?: number | null;
 }
 
 export async function saveCustomer(input: CustomerInput): Promise<Customer> {
@@ -81,12 +83,18 @@ export async function saveCustomer(input: CustomerInput): Promise<Customer> {
     throw new Error("Containers must be a whole number, 0 or more.");
   }
 
+  const price = input.pricePerGallon ?? null;
+  if (price !== null && (!Number.isFinite(price) || price < 0)) {
+    throw new Error("Price must be 0 or more.");
+  }
+
   const row = {
     name,
     driver_id: input.driverId,
     phone: input.phone?.trim() || null,
     address: input.address?.trim() || null,
     containers_out: containers,
+    price_per_gallon: price,
   };
 
   const supabase = await db();

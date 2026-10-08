@@ -39,7 +39,7 @@ export function SettingsForms({ price: initialPrice }: { price: number }) {
         <h2 className="section-title">Price</h2>
         <div>
           <label htmlFor="price" className="field-label">
-            Price per gallon (₱)
+            Station price per gallon (₱)
           </label>
           <Input
             id="price"
@@ -52,8 +52,8 @@ export function SettingsForms({ price: initialPrice }: { price: number }) {
             aria-describedby="price-help"
           />
           <p id="price-help" className="mt-1.5 text-sm text-ink-muted">
-            Used for new deliveries only. Past deliveries keep the price they were logged at. Leave at 0 to
-            turn off payment tracking.
+            Charged to walk-ins and to every customer without their own price. Set a customer&apos;s own price
+            on their page. Past sales keep the price they were logged at.
           </p>
         </div>
         <Button type="submit" variant="secondary" disabled={busy}>
