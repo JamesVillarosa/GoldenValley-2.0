@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react/dist/ssr";
-import { searchCustomers, createCustomer } from "@/lib/actions/customers";
+import { toast } from "sonner";
+import { searchCustomers, saveCustomer } from "@/lib/actions/customers";
 import type { Customer } from "@/lib/supabase/types";
 import { DropletStatus } from "@/components/droplet-status";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 export function CustomerSearch({
   driverId,
@@ -28,8 +28,7 @@ export function CustomerSearch({
     const handle = setTimeout(() => {
       startTransition(async () => {
         try {
-          const data = await searchCustomers(driverId, query);
-          setResults(data);
+          setResults(await searchCustomers(driverId, query));
         } catch {
           setResults([]);
         }
@@ -39,38 +38,42 @@ export function CustomerSearch({
   }, [query, driverId, open]);
 
   useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    function onPointerDown(e: PointerEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  async function handleCreate() {
-    const name = query.trim();
-    if (!name) return;
+  function pick(customer: Customer) {
+    onSelect(customer);
+    setQuery("");
+    setOpen(false);
+  }
+
+  function handleCreate() {
     startTransition(async () => {
-      const customer = await createCustomer(driverId, name);
-      onSelect(customer);
-      setQuery("");
-      setOpen(false);
+      try {
+        pick(await saveCustomer({ name: query, driverId }));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not add customer.");
+      }
     });
   }
 
   if (selected) {
     return (
-      <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-        <div className="flex items-center gap-3">
-          <DropletStatus status={selected.status} size={20} />
-          <span className="font-display text-lg font-medium">{selected.name}</span>
+      <div className="flex items-center gap-3 rounded-md border border-border bg-mist py-2 pr-1.5 pl-4">
+        <DropletStatus status={selected.status} size={20} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-[1.0625rem] font-medium">{selected.name}</p>
+          {selected.address && <p className="truncate text-sm text-ink-muted">{selected.address}</p>}
         </div>
         <button
           type="button"
           aria-label="Change customer"
           onClick={() => onSelect(null)}
-          className="grid h-9 w-9 place-items-center rounded-[var(--radius-pill)] text-[var(--color-ink-muted)] active:scale-[0.93] transition-transform duration-150"
+          className="press grid h-11 w-11 shrink-0 place-items-center rounded-pill text-ink-muted"
         >
           <X size={18} />
         </button>
@@ -78,65 +81,56 @@ export function CustomerSearch({
     );
   }
 
-  const exactMatch = results.some(
-    (r) => r.name.toLowerCase() === query.trim().toLowerCase()
-  );
+  const name = query.trim();
+  const exactMatch = results.some((r) => r.name.toLowerCase() === name.toLowerCase());
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="relative">
-        <MagnifyingGlass
-          size={18}
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-ink-muted)]"
-        />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setOpen(true)}
-          placeholder="Search customer"
-          className="pl-11"
-        />
-      </div>
+      <MagnifyingGlass
+        size={18}
+        className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-muted"
+      />
+      <Input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => setOpen(true)}
+        placeholder="Search customer"
+        aria-label="Search customer"
+        className="pl-11"
+      />
 
       {open && (
-        <div
-          className="absolute inset-x-0 top-[calc(100%+8px)] z-20 max-h-72 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)]"
-          style={{ boxShadow: "var(--shadow-sheet)" }}
-        >
+        <div className="absolute inset-x-0 top-[calc(100%+6px)] z-20 max-h-72 overflow-y-auto rounded-md border border-border bg-surface shadow-sheet">
           {results.map((customer) => (
             <button
               key={customer.id}
               type="button"
-              onClick={() => {
-                onSelect(customer);
-                setQuery("");
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-                "hover:bg-[var(--color-mist)]"
-              )}
+              onClick={() => pick(customer)}
+              className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-mist"
             >
               <DropletStatus status={customer.status} size={16} />
-              <span className="font-medium">{customer.name}</span>
+              <span className="min-w-0 flex-1 truncate font-medium">{customer.name}</span>
+              {customer.usual_gallons != null && (
+                <span className="num shrink-0 text-sm text-ink-muted">{customer.usual_gallons} gal</span>
+              )}
             </button>
           ))}
 
-          {!isPending && query.trim() && !exactMatch && (
+          {!isPending && name && !exactMatch && (
             <button
               type="button"
               onClick={handleCreate}
-              className="flex w-full items-center gap-3 border-t border-[var(--color-border)] px-4 py-3 text-left text-[var(--color-deep-blue)]"
+              className="flex min-h-12 w-full items-center gap-3 border-t border-border px-4 py-2.5 text-left font-medium text-deep-blue"
             >
               <Plus size={16} weight="bold" />
-              <span className="font-medium">Add &quot;{query.trim()}&quot;</span>
+              Add &quot;{name}&quot; as new customer
             </button>
           )}
 
-          {!isPending && results.length === 0 && !query.trim() && (
-            <div className="px-4 py-3 text-sm text-[var(--color-ink-muted)]">
-              Start typing to search this driver&apos;s customers.
-            </div>
+          {!isPending && results.length === 0 && !name && (
+            <p className="px-4 py-3 text-sm text-ink-muted">
+              No customers for this driver yet. Type a name to add one.
+            </p>
           )}
         </div>
       )}
