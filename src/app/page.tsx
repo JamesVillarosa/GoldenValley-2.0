@@ -32,7 +32,7 @@ export default async function DeliverPage({ searchParams }: PageProps<"/">) {
           </Link>
         }
       />
-      <DeliverForm drivers={drivers} price={price} today={today} initialCustomer={customer} />
+      <DeliverForm key={today} drivers={drivers} price={price} today={today} initialCustomer={customer} />
     </div>
   );
 }
