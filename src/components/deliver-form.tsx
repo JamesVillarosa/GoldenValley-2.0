@@ -42,7 +42,6 @@ export function DeliverForm({
   useEffect(() => {
     if (!driverId) return;
     let cancelled = false;
-    setDeliveries(null);
     getDriverDeliveries(driverId, today)
       .then((data) => !cancelled && setDeliveries(data))
       .catch(() => !cancelled && setDeliveries([]));
@@ -102,6 +101,7 @@ export function DeliverForm({
           value={driverId}
           onChange={(id) => {
             setDriverId(id);
+            setDeliveries(null);
             pickCustomer(null);
           }}
         />

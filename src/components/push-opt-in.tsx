@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Bell, BellRinging } from "@phosphor-icons/react/dist/ssr";
-import { getVapidPublicKey, saveSubscription } from "@/lib/actions/push";
+import { getVapidPublicKey, saveSubscription, sendTestPush } from "@/lib/actions/push";
 import { Button } from "@/components/ui/button";
 
 function urlBase64ToUint8Array(base64: string) {
@@ -22,21 +22,19 @@ function isPushSupported() {
 }
 
 export function PushOptIn() {
-  // null until mounted: the server cannot know, and guessing breaks hydration.
-  const [supported, setSupported] = useState<boolean | null>(null);
+  // null on the server: it cannot know, and guessing breaks hydration.
+  const supported = useSyncExternalStore<boolean | null>(() => () => {}, isPushSupported, () => null);
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const ok = isPushSupported();
-    setSupported(ok);
-    if (!ok) return;
+    if (!supported) return;
 
     navigator.serviceWorker.ready.then(async (registration) => {
       const subscription = await registration.pushManager.getSubscription();
       setEnabled(!!subscription);
     });
-  }, []);
+  }, [supported]);
 
   async function handleEnable() {
     setLoading(true);
@@ -87,10 +85,29 @@ export function PushOptIn() {
 
   if (enabled) {
     return (
-      <p className="flex items-center gap-2 font-medium text-success-ink">
-        <BellRinging size={18} weight="fill" />
-        Reminders are on for this phone
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 font-medium text-success-ink">
+          <BellRinging size={18} weight="fill" />
+          On for this phone
+        </p>
+        <Button
+          variant="secondary"
+          disabled={loading}
+          onClick={async () => {
+            setLoading(true);
+            try {
+              const sent = await sendTestPush();
+              toast.success(`Sent to ${sent} ${sent === 1 ? "phone" : "phones"}`);
+            } catch {
+              toast.error("Could not send. Try again.");
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          Send test
+        </Button>
+      </div>
     );
   }
 

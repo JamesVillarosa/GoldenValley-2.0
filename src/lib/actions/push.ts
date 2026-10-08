@@ -1,5 +1,6 @@
 "use server";
 
+import { notifyDue } from "@/lib/push";
 import { db } from "@/lib/supabase/server";
 
 export interface PushSubscriptionInput {
@@ -32,4 +33,9 @@ export async function removeSubscription(endpoint: string): Promise<void> {
 
 export async function getVapidPublicKey(): Promise<string | null> {
   return process.env.VAPID_PUBLIC_KEY ?? null;
+}
+
+/** Sends the daily summary right now, so the manager can check it arrives. */
+export async function sendTestPush(): Promise<number> {
+  return (await notifyDue(await db())).sent;
 }

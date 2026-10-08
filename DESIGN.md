@@ -88,7 +88,7 @@ layout:
   section_gap: 24
   page_padding_x: 16
   touch_target_min: 44
-  nav: bottom tab bar, 4 items, 64px height, fixed
+  nav: bottom tab bar, 5 items (Deliver, Due, Dashboard, Salary, Customers), 64px height, fixed
   breakpoints: { sm: 640, md: 768, lg: 1024 }
 ```
 
