@@ -1,6 +1,6 @@
 "use server";
 
-import { createServiceClient } from "@/lib/supabase/server";
+import { db } from "@/lib/supabase/server";
 
 export interface PushSubscriptionInput {
   endpoint: string;
@@ -9,7 +9,7 @@ export interface PushSubscriptionInput {
 }
 
 export async function saveSubscription(input: PushSubscriptionInput): Promise<void> {
-  const supabase = createServiceClient();
+  const supabase = await db();
   const { error } = await supabase
     .from("push_subscriptions")
     .upsert(
@@ -21,7 +21,7 @@ export async function saveSubscription(input: PushSubscriptionInput): Promise<vo
 }
 
 export async function removeSubscription(endpoint: string): Promise<void> {
-  const supabase = createServiceClient();
+  const supabase = await db();
   const { error } = await supabase
     .from("push_subscriptions")
     .delete()
