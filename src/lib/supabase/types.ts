@@ -4,6 +4,7 @@ export interface Driver {
   id: string;
   name: string;
   base_salary: number;
+  rate_per_gallon: number;
   created_at: string;
 }
 
@@ -25,6 +26,7 @@ export interface Transaction {
   driver_id: string;
   gallons: number;
   created_at: string;
+  settled_at: string | null;
 }
 
 export interface PushSubscriptionRow {

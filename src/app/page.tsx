@@ -1,5 +1,6 @@
 import { getDrivers } from "@/lib/actions/drivers";
 import { TransactionForm } from "@/components/transaction-form";
+import { LiveClock } from "@/components/live-clock";
 
 export default async function TransactionPage() {
   const drivers = await getDrivers();
@@ -10,6 +11,7 @@ export default async function TransactionPage() {
         <h1 className="font-display text-2xl font-semibold text-[var(--color-ink)]">
           New delivery
         </h1>
+        <LiveClock />
       </header>
 
       <TransactionForm drivers={drivers} />

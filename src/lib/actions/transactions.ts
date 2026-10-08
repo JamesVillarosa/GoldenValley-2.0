@@ -69,3 +69,85 @@ export async function getCustomerTransactions(
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+export interface DriverDelivery extends Transaction {
+  customerName: string;
+}
+
+export async function getDriverDeliveries(
+  driverId: string,
+  date: string
+): Promise<DriverDelivery[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*, customers(name)")
+    .eq("driver_id", driverId)
+    .is("settled_at", null)
+    .gte("created_at", `${date}T00:00:00`)
+    .lte("created_at", `${date}T23:59:59.999`)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => {
+    const customers = row.customers as unknown as
+      | { name: string }
+      | { name: string }[]
+      | null;
+    const customerName = Array.isArray(customers)
+      ? customers[0]?.name
+      : customers?.name;
+    return { ...row, customerName: customerName ?? "Unknown customer" };
+  });
+}
+
+export async function resetDriverDay(
+  driverId: string,
+  date: string
+): Promise<number> {
+  const supabase = createServiceClient();
+
+  const { data: driver, error: driverError } = await supabase
+    .from("drivers")
+    .select("name")
+    .eq("id", driverId)
+    .single();
+  if (driverError) throw new Error(driverError.message);
+
+  const deliveries = await getDriverDeliveries(driverId, date);
+  if (deliveries.length === 0) return 0;
+
+  const { error: logError } = await supabase.from("delivery_log").insert(
+    deliveries.map((tx) => ({
+      transaction_id: tx.id,
+      customer_id: tx.customer_id,
+      customer_name: tx.customerName,
+      driver_id: driverId,
+      driver_name: driver.name,
+      gallons: tx.gallons,
+      delivered_at: tx.created_at,
+    }))
+  );
+  if (logError) throw new Error(logError.message);
+
+  // Mark settled rather than delete: delivery history stays intact for the
+  // customer-interval algorithm and the customer detail page. Salary and the
+  // entry screen's "Today" list only count unsettled rows, so this is what
+  // makes those views read as reset.
+  const { error } = await supabase
+    .from("transactions")
+    .update({ settled_at: new Date().toISOString() })
+    .in(
+      "id",
+      deliveries.map((tx) => tx.id)
+    );
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/");
+  revalidatePath("/dashboard");
+  revalidatePath("/salary");
+  revalidatePath("/customers");
+  return deliveries.length;
+}

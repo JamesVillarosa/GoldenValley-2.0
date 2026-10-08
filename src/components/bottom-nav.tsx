@@ -17,7 +17,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 mx-auto flex h-16 w-full max-w-md items-stretch border-t border-[var(--color-border)] bg-[var(--color-surface)]"
+      className="fixed inset-x-0 bottom-0 z-30 mx-auto flex h-16 w-full max-w-md items-stretch rounded-t-[var(--radius-lg)] border border-b-0 border-[var(--color-border)] bg-[var(--color-surface)]"
       style={{ boxShadow: "var(--shadow-sheet)" }}
     >
       {TABS.map(({ href, label, icon: Icon }) => {
