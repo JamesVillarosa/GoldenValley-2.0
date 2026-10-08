@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
-:root {
+@theme {
   --color-ink: #0a2540;
-  --color-ink-muted: oklch(from #0a2540 l c h / 0.64);
+  --color-ink-muted: oklch(from #0a2540 l c h / 0.66);
   --color-deep-blue: #0b4f6c;
   --color-aqua: #00b4d8;
   --color-surface: #ffffff;
   --color-mist: #f1f8fb;
+  --color-tint: #e1f0f6;
   --color-success: #2e9e6b;
+  --color-success-ink: #1c6f49;
   --color-warning: #e0a100;
+  --color-warning-ink: #7d5a00;
   --color-danger: #d64545;
+  --color-danger-ink: #b23030;
   --color-border: #dceaf0;
 
   --radius-sm: 8px;
@@ -20,33 +24,19 @@
   --shadow-card: 0 1px 2px oklch(from #0a2540 l c h / 0.06);
   --shadow-sheet: 0 -4px 24px oklch(from #0a2540 l c h / 0.12);
 
+  --font-display: var(--font-space-grotesk), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:root {
   --z-dropdown: 20;
   --z-sticky: 30;
   --z-modal-backdrop: 40;
   --z-modal: 50;
   --z-toast: 60;
-
-  --font-display: var(--font-space-grotesk);
-  --font-body: var(--font-inter);
-}
-
-@theme inline {
-  --color-ink: var(--color-ink);
-  --color-ink-muted: var(--color-ink-muted);
-  --color-deep-blue: var(--color-deep-blue);
-  --color-aqua: var(--color-aqua);
-  --color-surface: var(--color-surface);
-  --color-mist: var(--color-mist);
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-danger: var(--color-danger);
-  --color-border: var(--color-border);
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-pill: var(--radius-pill);
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
+  --nav-height: calc(64px + env(safe-area-inset-bottom));
 }
 
 html {
@@ -57,16 +47,68 @@ body {
   min-height: 100dvh;
   background: var(--color-mist);
   color: var(--color-ink);
-  font-family: var(--font-body), system-ui, sans-serif;
+  font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
 }
 
-.font-display {
-  font-family: var(--font-display), system-ui, sans-serif;
+h1,
+h2 {
+  text-wrap: balance;
 }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+:focus-visible {
+  outline: 2px solid var(--color-aqua);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-md px-4 pt-5 pb-8;
+  }
+
+  .card {
+    @apply rounded-lg border border-border bg-surface shadow-card;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-[0.8125rem] font-medium text-ink-muted;
+  }
+
+  .section-title {
+    @apply font-display text-[1.0625rem] font-semibold text-ink;
+  }
+
+  .num {
+    @apply font-display tabular-nums;
+  }
+
+  /* Press feedback for anything tappable. */
+  .press {
+    transition: transform 160ms var(--ease-out);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /* New rows settle in; the default state is the visible one. */
+  .row-in {
+    transition:
+      opacity 240ms var(--ease-out),
+      transform 240ms var(--ease-out);
+    @starting-style {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  .bar-in {
+    transform-origin: bottom;
+    transition: transform 420ms var(--ease-out);
+    @starting-style {
+      transform: scaleY(0.2);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

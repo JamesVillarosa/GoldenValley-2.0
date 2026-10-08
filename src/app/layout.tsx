@@ -19,30 +19,23 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Golden Valley",
-  description: "Water delivery transaction tracker for Golden Valley.",
+  description: "Deliveries, due customers and driver salary for Golden Valley water station.",
   manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Golden Valley",
-  },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Golden Valley" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b4f6c",
+  themeColor: "#f1f8fb",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${spaceGrotesk.variable} ${inter.variable} h-full antialiased`}
-    >
-      <body className="min-h-dvh flex flex-col">
-        <main className="flex flex-1 flex-col pb-20">{children}</main>
+    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} h-full antialiased`}>
+      <body className="flex min-h-dvh flex-col">
+        <main className="flex flex-1 flex-col pb-[var(--nav-height)]">{children}</main>
         <BottomNav />
         <ServiceWorkerRegister />
         <Toaster

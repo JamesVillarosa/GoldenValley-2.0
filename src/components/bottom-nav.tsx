@@ -2,23 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Drop, ListChecks, Wallet, UsersThree } from "@phosphor-icons/react/dist/ssr";
+import { CalendarCheck, ChartBar, Drop, UsersThree, Wallet } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/", label: "Transaction", icon: Drop },
-  { href: "/dashboard", label: "Dashboard", icon: ListChecks },
+  { href: "/", label: "Deliver", icon: Drop },
+  { href: "/due", label: "Due", icon: CalendarCheck },
+  { href: "/dashboard", label: "Dashboard", icon: ChartBar },
   { href: "/salary", label: "Salary", icon: Wallet },
   { href: "/customers", label: "Customers", icon: UsersThree },
 ] as const;
 
 export function BottomNav() {
   const pathname = usePathname();
+  if (pathname === "/login") return null;
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 mx-auto flex h-16 w-full max-w-md items-stretch rounded-t-[var(--radius-lg)] border border-b-0 border-[var(--color-border)] bg-[var(--color-surface)]"
-      style={{ boxShadow: "var(--shadow-sheet)" }}
+      aria-label="Main"
+      className="fixed inset-x-0 bottom-0 z-30 mx-auto flex h-[var(--nav-height)] w-full max-w-md items-start border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]"
     >
       {TABS.map(({ href, label, icon: Icon }) => {
         const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -26,28 +28,25 @@ export function BottomNav() {
           <Link
             key={href}
             href={href}
-            className="flex flex-1 flex-col items-center justify-center gap-1"
             aria-current={active ? "page" : undefined}
+            className="flex h-16 flex-1 flex-col items-center justify-center gap-1"
           >
-            <Icon
-              size={22}
-              weight={active ? "fill" : "regular"}
-              color={active ? "var(--color-deep-blue)" : "var(--color-ink-muted)"}
-            />
             <span
               className={cn(
-                "text-[11px] font-medium",
-                active ? "text-[var(--color-deep-blue)]" : "text-[var(--color-ink-muted)]"
+                "grid h-7 w-14 place-items-center rounded-pill transition-colors duration-200",
+                active ? "bg-tint text-deep-blue" : "text-ink-muted"
+              )}
+            >
+              <Icon size={22} weight={active ? "fill" : "regular"} />
+            </span>
+            <span
+              className={cn(
+                "text-[0.6875rem] font-medium",
+                active ? "text-deep-blue" : "text-ink-muted"
               )}
             >
               {label}
             </span>
-            <span
-              className={cn(
-                "h-0.5 w-6 rounded-full transition-colors",
-                active ? "bg-[var(--color-aqua)]" : "bg-transparent"
-              )}
-            />
           </Link>
         );
       })}
