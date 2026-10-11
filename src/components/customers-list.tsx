@@ -2,8 +2,9 @@
 
 import { useDeferredValue, useState } from "react";
 import Link from "next/link";
-import { MagnifyingGlass } from "@phosphor-icons/react/dist/ssr";
+import { CaretDown, MagnifyingGlass, MapPin } from "@phosphor-icons/react/dist/ssr";
 import { DropletStatus } from "@/components/droplet-status";
+import { Segmented } from "@/components/segmented";
 import { Input } from "@/components/ui/input";
 import { peso } from "@/lib/format";
 import type { Customer, Driver } from "@/lib/supabase/types";
@@ -11,14 +12,12 @@ import type { Customer, Driver } from "@/lib/supabase/types";
 type Filter = "all" | "owing" | "containers";
 const ALL = "\u0000all";
 const NONE = "No place yet";
-const SELECT =
-  "h-[52px] w-full rounded-md border border-border bg-surface px-3 text-[1.0625rem] text-ink outline-none focus:border-aqua focus:ring-[3px] focus:ring-aqua/25";
 
 export function CustomersList({ customers, drivers }: { customers: Customer[]; drivers: Driver[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [area, setArea] = useState(ALL);
-  // Every place in use becomes a chip, so a new subdivision shows up by itself.
+  // Every place in use is listed, so a new subdivision shows up by itself.
   const areas = [...new Set(customers.map((c) => c.area ?? NONE))].sort(
     (a, b) => Number(a === NONE) - Number(b === NONE) || a.localeCompare(b)
   );
@@ -53,12 +52,30 @@ export function CustomersList({ customers, drivers }: { customers: Customer[]; d
           className="pl-11"
         />
       </div>
-      <div className="flex gap-3">
-        <div className="min-w-0 flex-1">
-          <label htmlFor="filter-place" className="field-label">
-            Place
-          </label>
-          <select id="filter-place" value={area} onChange={(e) => setArea(e.target.value)} className={SELECT}>
+      <Segmented
+        label="Filter"
+        options={[
+          { value: "all", label: "All" },
+          { value: "owing", label: "Unpaid" },
+          { value: "containers", label: "Has containers" },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
+      {/* Places can grow to dozens of subdivisions, so they live in one picker
+          on the count line instead of a second row of buttons. */}
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <p className="num text-[0.9375rem] text-ink-muted" aria-live="polite">
+          {shown.length} {shown.length === 1 ? "customer" : "customers"} in
+        </p>
+        <div className="relative min-w-0">
+          <MapPin size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-deep-blue" />
+          <select
+            aria-label="Place"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            className="h-11 max-w-full appearance-none truncate rounded-pill border border-border bg-surface pr-9 pl-9 font-display text-[0.9375rem] font-semibold text-deep-blue outline-none focus:border-aqua focus:ring-[3px] focus:ring-aqua/25"
+          >
             <option value={ALL}>All places</option>
             {areas.map((a) => (
               <option key={a} value={a}>
@@ -66,27 +83,14 @@ export function CustomersList({ customers, drivers }: { customers: Customer[]; d
               </option>
             ))}
           </select>
-        </div>
-        <div className="min-w-0 flex-1">
-          <label htmlFor="filter-show" className="field-label">
-            Show
-          </label>
-          <select id="filter-show" value={filter} onChange={(e) => setFilter(e.target.value as Filter)} className={SELECT}>
-            <option value="all">Everyone</option>
-            <option value="owing">Unpaid only</option>
-            <option value="containers">Has containers</option>
-          </select>
+          <CaretDown size={14} weight="bold" className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-deep-blue" />
         </div>
       </div>
-      <p className="num pt-1 text-sm text-ink-muted" aria-live="polite">
-        {shown.length} {shown.length === 1 ? "customer" : "customers"}
-        {area !== ALL && ` in ${area}`}
-      </p>
       {shown.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-6 py-10 text-center text-[0.9375rem] text-ink-muted">
           {customers.length === 0
             ? "No customers yet. Tap New to add your first one."
-            : "No customers match. Try a shorter search, or set Place and Show back to all."}
+            : "No customers match. Try a shorter search, All places or the All filter."}
         </p>
       ) : (
         <ul className="card divide-y divide-border overflow-hidden">

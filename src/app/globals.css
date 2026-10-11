@@ -52,6 +52,15 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Amounts are typed on a phone keypad; the tiny up/down arrows only take room. */
+input[type="number"] {
+  appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+}
+
 h1,
 h2 {
   text-wrap: balance;

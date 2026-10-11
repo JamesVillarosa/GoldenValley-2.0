@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { toast } from "sonner";
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react/dist/ssr";
+import { saveCustomer } from "@/lib/actions/client";
 import { searchCustomers } from "@/lib/actions/customers";
 import { gal, peso } from "@/lib/format";
 import type { Customer } from "@/lib/supabase/types";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PriceFields, draftOf, pricingInput } from "@/components/price-fields";
 import { DropletStatus } from "@/components/droplet-status";
 import { Input } from "@/components/ui/input";
 
@@ -23,6 +26,20 @@ export function CustomerSearch({
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [pricing, setPricing] = useState(() => draftOf());
+
+  function handleCreate() {
+    startTransition(async () => {
+      try {
+        const created = await saveCustomer({ name: adding ?? "", driverId, ...pricingInput(pricing) });
+        setAdding(null);
+        pick(created);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not add customer.");
+      }
+    });
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -115,15 +132,18 @@ export function CustomerSearch({
           ))}
 
           {!isPending && name && !exactMatch && (
-            // A new customer needs a price, so adding one opens the customer form
-            // and comes back here with them picked.
-            <Link
-              href={`/customers/new?from=deliver&driver=${driverId}&name=${encodeURIComponent(name)}`}
+            <button
+              type="button"
+              onClick={() => {
+                setPricing(draftOf());
+                setAdding(name);
+                setOpen(false);
+              }}
               className="flex min-h-12 w-full items-center gap-3 border-t border-border px-4 py-2.5 text-left font-medium text-deep-blue"
             >
               <Plus size={16} weight="bold" />
               Add &quot;{name}&quot; as new customer
-            </Link>
+            </button>
           )}
 
           {!isPending && results.length === 0 && !name && (
@@ -133,6 +153,23 @@ export function CustomerSearch({
           )}
         </div>
       )}
+
+      {/* A new customer only needs a price to be delivered to; the rest of
+          their details can be filled in later on the Customers tab. */}
+      <ConfirmDialog
+        open={adding !== null}
+        title={`New customer: ${adding ?? ""}`}
+        description="How much do they pay?"
+        confirmLabel="Add"
+        loading={isPending}
+        confirmDisabled={!(Number(pricing.price) >= 0) || !pricing.price.trim()}
+        onConfirm={handleCreate}
+        onCancel={() => setAdding(null)}
+      >
+        <div className="mt-4">
+          <PriceFields value={pricing} onChange={setPricing} />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }
