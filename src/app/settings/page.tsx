@@ -13,7 +13,7 @@ export default async function SettingsPage() {
             Daily reminder
           </h2>
           <p className="mt-1 mb-3 text-[0.9375rem] text-ink-muted">
-            Every morning at 7:00 this phone gets a notification listing how many customers are due.
+            Every morning at 7:00, Monday to Saturday, this phone gets a notification with the gallons to load that day.
           </p>
           <PushOptIn />
         </section>

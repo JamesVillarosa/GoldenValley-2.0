@@ -1,6 +1,6 @@
 import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isClosed, manilaToday, shiftDays } from "@/lib/dates";
+import { manilaToday, shiftDays } from "@/lib/dates";
 
 /** Push today's due summary to every subscribed phone. */
 export async function notifyDue(supabase: SupabaseClient) {
@@ -11,7 +11,6 @@ export async function notifyDue(supabase: SupabaseClient) {
   );
 
   const today = manilaToday();
-  if (isClosed(today)) return { due: 0, sent: 0 };
   const [{ data: due, error }, { data: drivers }, { data: subscriptions }] = await Promise.all([
     supabase
       .from("customers")
@@ -33,10 +32,8 @@ export async function notifyDue(supabase: SupabaseClient) {
     .join(" · ");
 
   const payload = JSON.stringify({
-    title: rows.length
-      ? `${rows.length} ${rows.length === 1 ? "customer" : "customers"} due today`
-      : "No customers due today",
-    body: rows.length ? `About ${gallons} gal to load. ${perDriver}` : "Nobody is expected to order today.",
+    title: rows.length ? `About ${gallons} gal to load today` : "Nothing due today",
+    body: rows.length ? perDriver : "Nobody is expected to order today.",
     url: "/due",
   });
 

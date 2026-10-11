@@ -4,12 +4,13 @@ import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Trash } from "@phosphor-icons/react/dist/ssr";
-import { addExpense, deleteExpense } from "@/lib/actions/reports";
 import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { peso } from "@/lib/format";
 import type { Expense } from "@/lib/supabase/types";
+import { addExpense, deleteExpense } from "@/lib/actions/client";
 
 // Suggestions only: any other expense can be typed in.
 const SUGGESTED = {
@@ -124,17 +125,7 @@ export function ExpensePanel({
               />
               <div className="mt-2 flex flex-wrap gap-2">
                 {SUGGESTED[kind].map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-pressed={c === category}
-                    onClick={() => setCategory(c)}
-                    className={`press h-9 rounded-pill border px-3 text-sm font-medium ${
-                      c === category ? "border-deep-blue bg-deep-blue text-white" : "border-border bg-surface text-deep-blue"
-                    }`}
-                  >
-                    {c}
-                  </button>
+                  <Chip key={c} label={c} active={c === category} onClick={() => setCategory(c)} />
                 ))}
               </div>
             </div>

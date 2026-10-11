@@ -102,6 +102,23 @@ h2 {
     }
   }
 
+  /* Dialogs grow from the centre and their backdrop fades; both stay under 200ms. */
+  .dialog-in {
+    transition:
+      opacity 180ms var(--ease-out),
+      transform 180ms var(--ease-out);
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+  .dialog-in::backdrop {
+    transition: opacity 180ms var(--ease-out);
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
   .bar-in {
     transform-origin: bottom;
     transition: transform 420ms var(--ease-out);

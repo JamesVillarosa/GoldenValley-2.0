@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { deleteCustomer, saveCustomer } from "@/lib/actions/customers";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { GallonStepper } from "@/components/gallon-stepper";
 import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import type { Customer, Driver } from "@/lib/supabase/types";
+import { deleteCustomer, saveCustomer } from "@/lib/actions/client";
 
 export function CustomerForm({
   customer,
@@ -105,17 +106,7 @@ export function CustomerForm({
         {areas.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {areas.map((a) => (
-              <button
-                key={a}
-                type="button"
-                aria-pressed={a === area}
-                onClick={() => setArea(a)}
-                className={`press h-9 rounded-pill border px-3 text-sm font-medium ${
-                  a === area ? "border-deep-blue bg-deep-blue text-white" : "border-border bg-surface text-deep-blue"
-                }`}
-              >
-                {a}
-              </button>
+              <Chip key={a} label={a} active={a === area} onClick={() => setArea(a)} />
             ))}
           </div>
         )}

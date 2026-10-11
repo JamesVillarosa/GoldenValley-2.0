@@ -4,12 +4,12 @@ import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Trash } from "@phosphor-icons/react/dist/ssr";
-import { deleteTransaction, setPaid, settleCustomer } from "@/lib/actions/transactions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { gal, peso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Transaction } from "@/lib/supabase/types";
+import { deleteTransaction, setPaid, settleCustomer } from "@/lib/actions/client";
 
 /** Balance plus delivery history. Rows come from the server and refresh after
  * every action, so the balance and the list can never disagree. */
@@ -85,8 +85,8 @@ export function CustomerHistory({
                     aria-pressed={tx.paid}
                     onClick={() => setToFlip(tx)}
                     className={cn(
-                      "press h-9 shrink-0 rounded-pill border px-3 text-sm font-medium",
-                      tx.paid ? "border-border text-success-ink" : "border-danger-ink/30 bg-danger/10 text-danger-ink"
+                      "press h-10 w-[4.75rem] shrink-0 rounded-pill border text-sm font-semibold",
+                      tx.paid ? "border-success-ink/30 bg-success/10 text-success-ink" : "border-danger-ink/30 bg-danger/10 text-danger-ink"
                     )}
                   >
                     {tx.paid ? "Paid" : "Unpaid"}
