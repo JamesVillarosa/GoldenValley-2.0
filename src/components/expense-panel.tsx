@@ -7,15 +7,17 @@ import { Plus, Trash } from "@phosphor-icons/react/dist/ssr";
 import { deleteExpense } from "@/lib/actions/client";
 import { ExpenseButton } from "@/components/expense-button";
 import { peso } from "@/lib/format";
-import type { Expense } from "@/lib/supabase/types";
+import type { Driver, Expense } from "@/lib/supabase/types";
 
 /** What was spent in the viewed period. Adding is a small button; expenses are
  * mostly logged from the Deliver screen. */
 export function ExpensePanel({
   expenses,
+  drivers,
   today,
   longView,
 }: {
+  drivers: Pick<Driver, "id" | "name">[];
   expenses: Expense[];
   today: string;
   /** Month or year view: monthly bills are listed and counted. */
@@ -44,6 +46,7 @@ export function ExpensePanel({
         </h2>
         <ExpenseButton
           today={today}
+          drivers={drivers}
           className="press flex h-11 items-center gap-1.5 rounded-pill border border-border bg-surface px-4 font-display text-[0.9375rem] font-semibold text-deep-blue"
         >
           <Plus size={16} weight="bold" />
@@ -63,6 +66,7 @@ export function ExpensePanel({
                     {e.monthly
                       ? `Monthly bill, ${format(new Date(`${e.spent_on}T00:00`), "MMMM")}`
                       : format(new Date(`${e.spent_on}T00:00`), "MMM d")}
+                    {e.driver_id && ` · paid by ${drivers.find((d) => d.id === e.driver_id)?.name ?? "a driver"}`}
                     {e.note && ` · ${e.note}`}
                   </p>
                 </div>

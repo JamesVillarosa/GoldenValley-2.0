@@ -2,19 +2,24 @@
 
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { addExpense } from "@/lib/actions/client";
+import { addAdvance, addExpense } from "@/lib/actions/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Segmented } from "@/components/segmented";
 import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { peso } from "@/lib/format";
+import type { Driver } from "@/lib/supabase/types";
 
 const OTHER = "Other";
+// Salary handed to the driver early. Saved as a payout, never as an expense.
+const BALE = "Bale";
+const MANAGER = "manager";
 const SUGGESTED = {
-  daily: ["Gas", "Maintenance", "Filters", "Seals", OTHER],
+  daily: ["Gas", "Meryenda", "Maintenance", "Filters", "Seals", BALE, OTHER],
   monthly: ["Meralco", "Water bill", "Rent", OTHER],
 };
 type Kind = keyof typeof SUGGESTED;
+const kindIsDaily = (kind: Kind) => kind === "daily";
 
 const without = (all: Record<string, string>, key: string) =>
   Object.fromEntries(Object.entries(all).filter(([k]) => k !== key));
@@ -24,10 +29,20 @@ const without = (all: Record<string, string>, key: string) =>
  * own amount. */
 export function ExpenseButton({
   today,
+  date: initialDate,
+  drivers,
+  payer: initialPayer = MANAGER,
+  onSaved,
   className,
   children,
 }: {
   today: string;
+  /** The day the pop-up starts on; today when omitted. */
+  date?: string;
+  drivers: Pick<Driver, "id" | "name">[];
+  /** Who paid, to start with: a driver id, or the manager when omitted. */
+  payer?: string;
+  onSaved?: () => void;
   className?: string;
   children: ReactNode;
 }) {
@@ -36,10 +51,15 @@ export function ExpenseButton({
   // Picked expenses and the amount typed for each.
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [otherName, setOtherName] = useState("");
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(initialDate ?? today);
+  // A driver pays from the day's collection, which lowers what they remit.
+  // The manager pays from their own pocket, which leaves the remit alone.
+  const [payer, setPayer] = useState(initialPayer);
+  const driver = kindIsDaily(kind) ? drivers.find((d) => d.id === payer) : undefined;
+  const options = SUGGESTED[kind].filter((c) => c !== BALE || driver);
   const [busy, setBusy] = useState(false);
 
-  const picked = SUGGESTED[kind].filter((c) => c in amounts);
+  const picked = options.filter((c) => c in amounts);
   const rows = picked.map((c) => ({
     key: c,
     category: c === OTHER ? otherName.trim() : c,
@@ -60,13 +80,23 @@ export function ExpenseButton({
     setBusy(true);
     try {
       for (const row of rows) {
-        await addExpense({ category: row.category, amount: row.amount, date, monthly: kind === "monthly" });
+        if (row.key === BALE) await addAdvance(driver!.id, row.amount, date);
+        else {
+          await addExpense({
+            category: row.category,
+            amount: row.amount,
+            date,
+            monthly: kind === "monthly",
+            driverId: driver?.id ?? null,
+          });
+        }
         // Saved rows leave the list, so a failure halfway never saves one twice.
         setAmounts((all) => without(all, row.key));
       }
-      toast.success(`${peso(rows.reduce((sum, r) => sum + r.amount, 0))} in expenses added`);
+      toast.success(`${peso(rows.reduce((sum, r) => sum + r.amount, 0))} added`);
       setOpen(false);
       reset();
+      onSaved?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save. Check your signal.");
     } finally {
@@ -76,16 +106,27 @@ export function ExpenseButton({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={className}>
+      <button
+        type="button"
+        onClick={() => {
+          // Starts from the driver and day currently on screen.
+          setPayer(initialPayer);
+          setDate(initialDate ?? today);
+          setOpen(true);
+        }}
+        className={className}
+      >
         {children}
       </button>
       <ConfirmDialog
         open={open}
         title="Add expenses"
         description={
-          kind === "daily"
-            ? "Tap everything you paid for, then type each amount."
-            : "Bills for the whole month. Counted in the Month and Year views."
+          kind === "monthly"
+            ? "Bills for the whole month. Counted in the Month and Year views."
+            : driver
+              ? `Taken from ${driver.name}'s collection, so it comes off what ${driver.name} remits.`
+              : "Paid by the manager. No driver's remit changes."
         }
         confirmLabel="Add"
         loading={busy}
@@ -106,8 +147,19 @@ export function ExpenseButton({
               reset();
             }}
           />
+          {kind === "daily" && (
+            <div>
+              <span className="field-label">Who paid</span>
+              <Segmented
+                label="Who paid"
+                options={[{ value: MANAGER, label: "Manager" }, ...drivers.map((d) => ({ value: d.id, label: d.name }))]}
+                value={driver ? payer : MANAGER}
+                onChange={setPayer}
+              />
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
-            {SUGGESTED[kind].map((c) => (
+            {options.map((c) => (
               <Chip key={c} label={c} active={c in amounts} onClick={() => toggle(c)} />
             ))}
           </div>
@@ -124,7 +176,10 @@ export function ExpenseButton({
                   className="min-w-0 flex-1"
                 />
               ) : (
-                <span className="min-w-0 flex-1 truncate font-medium">{c}</span>
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {c}
+                  {c === BALE && <span className="block text-sm font-normal text-ink-muted">Advance on salary</span>}
+                </span>
               )}
               <span className="text-ink-muted">₱</span>
               <Input

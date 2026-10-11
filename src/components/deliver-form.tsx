@@ -10,6 +10,9 @@ import { CustomerSearch } from "@/components/customer-search";
 import { GallonStepper } from "@/components/gallon-stepper";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DayTotal, DeliveryList } from "@/components/delivery-list";
+import { ExpenseButton } from "@/components/expense-button";
+import { RemitCard } from "@/components/remit-card";
+import { getDriverDeductions, type Deduction } from "@/lib/actions/reports";
 import { Button } from "@/components/ui/button";
 import { getDriverDeliveries, type DriverDelivery } from "@/lib/actions/transactions";
 import { isClosed, manilaToday } from "@/lib/dates";
@@ -35,10 +38,11 @@ export function DeliverForm({
   const [driverId, setDriverId] = useState(initialCustomer?.driver_id ?? drivers[0]?.id ?? WALK_IN);
   const [customer, setCustomer] = useState(initialCustomer);
   // Until a number is typed, the stepper shows the customer's usual order, or
-  // else the gallons last saved on this phone (the server cannot know those).
+  // else the gallons last saved for this driver on this phone (each driver
+  // keeps their own number; the server cannot know them).
   const lastGallons = useSyncExternalStore(
     () => () => {},
-    () => Number(localStorage.getItem(LAST_GALLONS)) || DEFAULT_GALLONS,
+    () => Number(localStorage.getItem(`${LAST_GALLONS}:${driverId}`)) || DEFAULT_GALLONS,
     () => DEFAULT_GALLONS
   );
   const [chosen, setGallons] = useState<number | null>(null);
@@ -48,6 +52,10 @@ export function DeliverForm({
   const [saving, setSaving] = useState(false);
   const [deliveries, setDeliveries] = useState<DriverDelivery[] | null>(null);
   const [reminding, setReminding] = useState(false);
+  const [deductions, setDeductions] = useState<Deduction[]>([]);
+  // Bumped after an expense or bale changes, to read the deductions again.
+  const [reload, setReload] = useState(0);
+  const driver = drivers.find((d) => d.id === driverId);
 
   const walkIn = driverId === WALK_IN;
   const amount = amountFor(gallons, customer, walkIn ? Number(walkInPrice) || 0 : stationPrice);
@@ -58,10 +66,15 @@ export function DeliverForm({
     getDriverDeliveries(walkIn ? null : driverId, date)
       .then((data) => !cancelled && setDeliveries(data))
       .catch(() => !cancelled && setDeliveries([]));
+    if (!walkIn) {
+      getDriverDeductions(driverId, date)
+        .then((data) => !cancelled && setDeductions(data))
+        .catch(() => !cancelled && setDeductions([]));
+    }
     return () => {
       cancelled = true;
     };
-  }, [driverId, walkIn, date]);
+  }, [driverId, walkIn, date, reload]);
 
   // Left open overnight, the screen must roll over to the new day by itself:
   // the page re-renders with the new date, which remounts this form.
@@ -96,7 +109,7 @@ export function DeliverForm({
         date,
         ...(walkIn && { price: Number(walkInPrice) || 0 }),
       });
-      localStorage.setItem(LAST_GALLONS, String(gallons));
+      localStorage.setItem(`${LAST_GALLONS}:${driverId}`, String(gallons));
       setDeliveries((prev) => [{ ...tx, customerName: customer?.name ?? "Walk-in", driverName: null }, ...(prev ?? [])]);
       toast.success(`${gal(gallons)} saved for ${name}`);
       pickCustomer(null);
@@ -128,6 +141,7 @@ export function DeliverForm({
               if (isClosed(next)) return void toast.error("The station is closed on Sundays.");
               setDate(next);
               setDeliveries(null);
+              setDeductions([]);
             }}
             className="num h-11 bg-transparent text-right font-medium text-ink outline-none"
           />
@@ -140,6 +154,7 @@ export function DeliverForm({
           onChange={(id) => {
             setDriverId(id);
             setDeliveries(null);
+            setDeductions([]);
             pickCustomer(null);
           }}
         />
@@ -155,6 +170,8 @@ export function DeliverForm({
               value={walkInPrice}
               onFocus={(e) => e.target.select()}
               onChange={(e) => setWalkInPrice(e.target.value)}
+              enterKeyHint="done"
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
               className="num h-11 w-20 bg-transparent text-right font-medium text-ink outline-none"
             />
           </label>
@@ -167,6 +184,28 @@ export function DeliverForm({
           <GallonStepper value={gallons} onChange={setGallons} />
         </div>
       </div>
+
+      {driver && deliveries && (
+        <RemitCard
+          driver={driver}
+          drivers={drivers}
+          date={date}
+          today={today}
+          deliveries={deliveries}
+          deductions={deductions}
+          onChanged={() => setReload((n) => n + 1)}
+        />
+      )}
+      {walkIn && (
+        <ExpenseButton
+          today={today}
+          date={date}
+          drivers={drivers}
+          className="press flex h-12 items-center justify-center gap-1.5 rounded-pill border border-border bg-surface font-display font-semibold text-deep-blue"
+        >
+          Add an expense
+        </ExpenseButton>
+      )}
 
       <section aria-labelledby="day-title">
         <div className="flex items-end justify-between pb-2">

@@ -176,7 +176,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </section>
         )}
 
-        <ExpensePanel expenses={expenses} today={lastWorkday(today)} longView={longView} />
+        <ExpensePanel drivers={salaries} expenses={expenses} today={lastWorkday(today)} longView={longView} />
 
         <section aria-labelledby="now-title">
           <h2 id="now-title" className="section-title pb-2">
