@@ -41,7 +41,7 @@ export function ConfirmDialog({
       ref={ref}
       onCancel={onCancel}
       onClick={(e) => e.target === ref.current && onCancel()}
-      className="dialog-in m-auto w-[calc(100%-2rem)] max-w-sm rounded-lg bg-surface p-5 text-ink backdrop:bg-ink/40"
+      className="dialog-in m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-lg bg-surface p-5 text-ink backdrop:bg-ink/40"
     >
       <h2 className="font-display text-lg font-semibold">{title}</h2>
       <p className="mt-1.5 text-[0.9375rem] text-ink-muted">{description}</p>
