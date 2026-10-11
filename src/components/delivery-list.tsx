@@ -4,6 +4,7 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { PencilSimple, Trash } from "@phosphor-icons/react/dist/ssr";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Segmented } from "@/components/segmented";
 import { GallonStepper } from "@/components/gallon-stepper";
 import { type DriverDelivery } from "@/lib/actions/transactions";
 import { gal, peso } from "@/lib/format";
@@ -25,6 +26,9 @@ export function DeliveryList({
   showDriver?: boolean;
 }) {
   const [ask, setAsk] = useState<Ask | null>(null);
+  const [show, setShow] = useState<"all" | "paid" | "unpaid">("all");
+  const paidCount = rows.filter((row) => row.paid).length;
+  const shown = show === "all" ? rows : rows.filter((row) => row.paid === (show === "paid"));
   const [gallons, setGallonsDraft] = useState(1);
   const tx = ask?.tx;
 
@@ -70,8 +74,25 @@ export function DeliveryList({
 
   return (
     <>
-      <ul className="card divide-y divide-border">
-        {rows.map((row) => (
+      <div className="pb-3">
+        <Segmented
+          label="Show"
+          options={[
+            { value: "all", label: `All ${rows.length}` },
+            { value: "paid", label: `Paid ${paidCount}` },
+            { value: "unpaid", label: `Unpaid ${rows.length - paidCount}` },
+          ]}
+          value={show}
+          onChange={setShow}
+        />
+      </div>
+      {shown.length === 0 && (
+        <p className="rounded-lg border border-dashed border-border px-6 py-8 text-center text-[0.9375rem] text-ink-muted">
+          {show === "paid" ? "Nothing is marked paid yet." : "Everything on this list is paid."}
+        </p>
+      )}
+      <ul className={cn("card divide-y divide-border", shown.length === 0 && "hidden")}>
+        {shown.map((row) => (
           <li key={row.id} className="row-in flex items-center gap-1 py-2 pr-1.5 pl-4">
             <button
               type="button"

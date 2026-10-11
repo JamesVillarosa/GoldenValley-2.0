@@ -110,7 +110,7 @@ export function DeliverForm({
         ...(walkIn && { price: Number(walkInPrice) || 0 }),
       });
       localStorage.setItem(`${LAST_GALLONS}:${driverId}`, String(gallons));
-      setDeliveries((prev) => [{ ...tx, customerName: customer?.name ?? "Walk-in", driverName: null }, ...(prev ?? [])]);
+      setDeliveries((prev) => [...(prev ?? []), { ...tx, customerName: customer?.name ?? "Walk-in", driverName: null }]);
       toast.success(`${gal(gallons)} saved for ${name}`);
       pickCustomer(null);
     } catch (error) {

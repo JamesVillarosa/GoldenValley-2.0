@@ -7,6 +7,13 @@ import { amountFor, type Pricing } from "@/lib/format";
 import { db } from "@/lib/supabase/server";
 import type { Transaction } from "@/lib/supabase/types";
 
+// The time of day in Manila right now, so entries for a past day keep the
+// order they were typed in.
+const manilaClock = () =>
+  new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(
+    new Date()
+  );
+
 export interface SaveTransactionInput {
   /** Both null for a walk-in sale at the station. */
   customerId: string | null;
@@ -61,8 +68,8 @@ export const saveTransaction = safe(async (input: SaveTransactionInput): Promise
       // leaves, so it starts unpaid and is marked paid when the driver is back.
       paid: !input.customerId,
       // delivered_on is derived from created_at, so a backdated entry is
-      // stamped at noon Manila time on the day it belongs to.
-      ...(input.date < today && { created_at: `${input.date}T12:00:00+08:00` }),
+      // stamped on the day it belongs to, at the current time of day.
+      ...(input.date < today && { created_at: `${input.date}T${manilaClock()}+08:00` }),
     })
     .select("*")
     .single();
@@ -142,7 +149,8 @@ export async function getDriverDeliveries(driverId: string | null, date: string)
   const supabase = await db();
   let request = supabase.from("transactions").select("*, customers(name), drivers(name)").eq("delivered_on", date);
   if (driverId !== "all") request = driverId ? request.eq("driver_id", driverId) : request.is("driver_id", null);
-  const { data, error } = await request.order("created_at", { ascending: false }).limit(1000);
+  // First sale of the day on top, in the order they were entered.
+  const { data, error } = await request.order("created_at", { ascending: true }).limit(1000);
 
   if (error) throw new Error(error.message);
 
