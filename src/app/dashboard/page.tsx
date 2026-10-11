@@ -4,6 +4,7 @@ import { getExpenses, getSalaries, getStats } from "@/lib/actions/reports";
 import { isClosed, lastWorkday, manilaToday, resolveRange } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
 import { salaryOf } from "@/lib/salary";
+import { Fresh } from "@/components/fresh";
 import { ExpensePanel } from "@/components/expense-panel";
 import { PageHeader } from "@/components/page-header";
 import { PeriodNav } from "@/components/period-nav";
@@ -75,6 +76,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
   return (
     <div className="page">
+      <Fresh />
       <PageHeader title="Dashboard" />
       <PeriodNav path="/dashboard" range={range} />
 

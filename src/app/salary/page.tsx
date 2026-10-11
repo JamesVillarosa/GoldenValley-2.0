@@ -2,6 +2,7 @@ import { getPayouts, getSalaries } from "@/lib/actions/reports";
 import { resolveRange } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
 import { salaryOf } from "@/lib/salary";
+import { Fresh } from "@/components/fresh";
 import { DriverEditor } from "@/components/driver-editor";
 import { PayoutControl } from "@/components/payout-control";
 import { PageHeader } from "@/components/page-header";
@@ -16,11 +17,14 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
     getPayouts(undefined, undefined, 60),
   ]);
   const payroll = drivers.reduce((sum, driver) => sum + salaryOf(driver).total, 0);
-  const paidTotal = paid.reduce((sum, p) => sum + Number(p.amount), 0);
-  const unpaid = Math.max(0, payroll - paidTotal);
+  const paidTo = (driverId: string) =>
+    paid.filter((p) => p.driver_id === driverId).reduce((sum, p) => sum + Number(p.amount), 0);
+  // Per driver, so paying one driver too much never hides what another is owed.
+  const unpaid = drivers.reduce((sum, d) => sum + Math.max(0, salaryOf(d).total - paidTo(d.id)), 0);
 
   return (
     <div className="page">
+      <Fresh />
       <PageHeader title="Salary" sub={
           payroll === 0
             ? "No salary earned in this period"
@@ -34,7 +38,7 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
         {drivers.map((driver) => {
           const pay = salaryOf(driver);
           const mine = paid.filter((p) => p.driver_id === driver.id);
-          const remaining = pay.total - mine.reduce((sum, p) => sum + Number(p.amount), 0);
+          const remaining = pay.total - paidTo(driver.id);
           return (
             <li key={driver.id} className="card">
               <div className="flex items-baseline justify-between gap-3 px-4 pt-4">
@@ -84,6 +88,7 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
 
               <PayoutControl
                 driverId={driver.id}
+                driverName={driver.name}
                 from={range.from}
                 to={range.to}
                 remaining={remaining}

@@ -33,8 +33,11 @@ export interface DriverSalary {
   base_salary: number;
   rate_per_gallon: number;
   bonuses: Bonus[];
-  /** Pesos earned from daily gallon targets in the period */
+  /** Pesos for the period, summed by the database from each day worked */
+  base_pay: number;
+  commission_pay: number;
   bonus: number;
+  total: number;
   gallons: number;
   deliveries: number;
   days_worked: number;
@@ -70,19 +73,27 @@ export async function getPayouts(from = "2000-01-01", to = "2999-12-31", limit =
   return data ?? [];
 }
 
-export const recordPayout = safe(async (driverId: string, from: string, to: string, amount: number): Promise<void> => {
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Nothing to pay for this period.");
+/** Records what is still owed to the driver for the period, one row per day
+ * worked. The database works the amount out, so a stale screen or a double tap
+ * can never pay the wrong amount. Returns the pesos recorded. */
+export const recordPayout = safe(async (driverId: string, from: string, to: string): Promise<number> => {
+  const supabase = await db();
+  const { data, error } = await supabase.rpc("record_payout", { p_driver: driverId, p_from: from, p_to: to });
+  if (error) throw new Error(error.message);
+  if (!(Number(data) > 0)) throw new Error("Nothing left to pay for this period.");
+  revalidatePath("/", "layout");
+  return Number(data);
+});
+
+/** Removes every payout of the driver that falls inside the period. */
+export const undoPayouts = safe(async (driverId: string, from: string, to: string): Promise<void> => {
   const supabase = await db();
   const { error } = await supabase
     .from("payouts")
-    .insert({ driver_id: driverId, period_from: from, period_to: to, amount });
-  if (error) throw new Error(error.message);
-  revalidatePath("/", "layout");
-});
-
-export const deletePayout = safe(async (payoutId: string): Promise<void> => {
-  const supabase = await db();
-  const { error } = await supabase.from("payouts").delete().eq("id", payoutId);
+    .delete()
+    .eq("driver_id", driverId)
+    .gte("period_from", from)
+    .lte("period_to", to);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
 });

@@ -1,10 +1,14 @@
 import type { DriverSalary } from "@/lib/actions/reports";
 
-/** Base salary is per day worked; commission is per gallon delivered; the
- * bonus is the sum of every daily gallon target the driver reached. */
-export function salaryOf(d: Pick<DriverSalary, "base_salary" | "rate_per_gallon" | "gallons" | "days_worked" | "bonus">) {
-  const base = Number(d.base_salary) * Number(d.days_worked);
-  const commission = Number(d.rate_per_gallon) * Number(d.gallons);
-  const bonus = Number(d.bonus);
-  return { base, commission, bonus, total: base + commission + bonus };
+/** A driver's pay for a period. The sums come from the database
+ * (`driver_day_pay`), which works each day out as base salary + commission per
+ * gallon + every bonus target reached that day. Nothing is recalculated here,
+ * so this screen and the payouts always show the same pesos. */
+export function salaryOf(d: Pick<DriverSalary, "base_pay" | "commission_pay" | "bonus" | "total">) {
+  return {
+    base: Number(d.base_pay),
+    commission: Number(d.commission_pay),
+    bonus: Number(d.bonus),
+    total: Number(d.total),
+  };
 }
