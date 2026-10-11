@@ -1,9 +1,8 @@
-import { getPrice } from "@/lib/actions/reports";
 import { PageHeader } from "@/components/page-header";
 import { PushOptIn } from "@/components/push-opt-in";
 import { SettingsForms } from "@/components/settings-forms";
 
-export default async function SettingsPage() {
+export default function SettingsPage() {
   return (
     <div className="page">
       <PageHeader title="Settings" />
@@ -17,7 +16,7 @@ export default async function SettingsPage() {
           </p>
           <PushOptIn />
         </section>
-        <SettingsForms price={await getPrice()} />
+        <SettingsForms />
       </div>
     </div>
   );

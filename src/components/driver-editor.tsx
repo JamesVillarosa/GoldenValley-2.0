@@ -125,7 +125,7 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
                 onChange={(e) => setBonus(i, { gallons: e.target.value })}
                 className="min-w-0 flex-1 px-2 text-center"
               />
-              <span className="shrink-0">gal = +₱</span>
+              <span className="shrink-0">gallons = +₱</span>
               <Input
                 aria-label={`Bonus ${i + 1}: extra pesos`}
                 required
@@ -148,7 +148,7 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
             </div>
           ))}
           <p className="text-sm text-ink-muted">
-            Each target reached in one day adds its bonus. Example: 65 gal = +₱25 and 100 gal = +₱25 pays ₱50 on a
+            Each target reached in one day adds its bonus. Example: 65 gallons = +₱25 and 100 gallons = +₱25 pays ₱50 on a
             100-gallon day.
           </p>
           <Button

@@ -17,7 +17,6 @@ export const setPaid = unwrapped(transactions.setPaid);
 export const settleCustomer = unwrapped(transactions.settleCustomer);
 export const saveDriver = unwrapped(drivers.saveDriver);
 export const removeDriver = unwrapped(drivers.removeDriver);
-export const savePrice = unwrapped(reports.savePrice);
 export const recordPayout = unwrapped(reports.recordPayout);
 export const deletePayout = unwrapped(reports.deletePayout);
 export const addExpense = unwrapped(reports.addExpense);

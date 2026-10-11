@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
-import { GearSix } from "@phosphor-icons/react/dist/ssr";
+import { GearSix, Receipt } from "@phosphor-icons/react/dist/ssr";
 import { getCustomer } from "@/lib/actions/customers";
 import { getDrivers } from "@/lib/actions/drivers";
 import { getPrice } from "@/lib/actions/reports";
 import { lastWorkday, manilaToday } from "@/lib/dates";
+import { ExpenseButton } from "@/components/expense-button";
 import { DeliverForm } from "@/components/deliver-form";
 import { PageHeader } from "@/components/page-header";
 
@@ -22,8 +23,16 @@ export default async function DeliverPage({ searchParams }: PageProps<"/">) {
     <div className="page flex flex-1 flex-col">
       <PageHeader
         title="Deliver"
-        sub={now === today ? format(parseISO(today), "EEEE, MMMM d") : "Closed on Sundays. Logging for Saturday."}
+        sub={now === today ? format(parseISO(today), "EEE, MMM d") : "Sunday: logging Saturday"}
         action={
+          <div className="flex shrink-0 gap-2">
+            <ExpenseButton
+              today={today}
+              className="press flex h-11 items-center gap-1.5 rounded-pill border border-border bg-surface px-3.5 font-display text-[0.9375rem] font-semibold text-deep-blue"
+            >
+              <Receipt size={18} />
+              Expense
+            </ExpenseButton>
           <Link
             href="/settings"
             aria-label="Settings"
@@ -31,6 +40,7 @@ export default async function DeliverPage({ searchParams }: PageProps<"/">) {
           >
             <GearSix size={20} />
           </Link>
+          </div>
         }
       />
       <DeliverForm key={today} drivers={drivers} price={price} today={today} initialCustomer={customer} />

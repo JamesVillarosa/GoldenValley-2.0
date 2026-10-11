@@ -3,6 +3,7 @@
 import { safe } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { lastWorkday, manilaToday, shiftDays, stepWorkday } from "@/lib/dates";
+import { amountFor } from "@/lib/format";
 import { db } from "@/lib/supabase/server";
 import type { Customer } from "@/lib/supabase/types";
 
@@ -72,10 +73,11 @@ export interface CustomerInput {
   address?: string;
   area?: string;
   containersOut?: number;
-  /** null or omitted = station price */
-  pricePerGallon?: number | null;
-  /** Gallons in the deal the price was typed as (3 for "50 pesos for 3"). */
-  priceQty?: number;
+  /** Pesos for one gallon. */
+  pricePerGallon: number;
+  /** Optional deal: `dealPrice` pesos for every `dealQty` gallons. */
+  dealQty?: number;
+  dealPrice?: number | null;
 }
 
 /** Places already in use, for the place picker. */
@@ -95,12 +97,13 @@ export const saveCustomer = safe(async (input: CustomerInput): Promise<Customer>
     throw new Error("Containers must be a whole number, 0 or more.");
   }
 
-  const price = input.pricePerGallon ?? null;
-  if (price !== null && (!Number.isFinite(price) || price < 0)) {
-    throw new Error("Price must be 0 or more.");
+  const price = input.pricePerGallon;
+  if (!Number.isFinite(price) || price < 0) throw new Error("Type the price for 1 gallon.");
+  const dealPrice = input.dealPrice ?? null;
+  const dealQty = dealPrice === null ? 1 : (input.dealQty ?? 1);
+  if (dealPrice !== null && (!Number.isFinite(dealPrice) || dealPrice < 0 || !Number.isInteger(dealQty) || dealQty < 2)) {
+    throw new Error("A deal needs a price and 2 or more gallons, like 50 for 3.");
   }
-  const priceQty = price === null ? 1 : (input.priceQty ?? 1);
-  if (!Number.isInteger(priceQty) || priceQty < 1) throw new Error("Gallons in the price must be 1 or more.");
 
   const row = {
     name,
@@ -110,7 +113,8 @@ export const saveCustomer = safe(async (input: CustomerInput): Promise<Customer>
     area: input.area?.trim().replace(/\s+/g, " ") || null,
     containers_out: containers,
     price_per_gallon: price,
-    price_qty: priceQty,
+    price_qty: dealQty,
+    deal_price: dealPrice,
   };
 
   const supabase = await db();
@@ -130,13 +134,18 @@ export const saveCustomer = safe(async (input: CustomerInput): Promise<Customer>
   // A new price applies to what is still unpaid on the current day's list;
   // older and already-paid sales keep the price they were sold at.
   if (input.id) {
-    const { data: settings } = await supabase.from("settings").select("price_per_gallon").single();
-    await supabase
+    const { data: open } = await supabase
       .from("transactions")
-      .update({ unit_price: price ?? settings?.price_per_gallon ?? 0 })
+      .select("id, gallons")
       .eq("customer_id", input.id)
       .eq("delivered_on", lastWorkday())
       .eq("paid", false);
+    for (const tx of open ?? []) {
+      await supabase
+        .from("transactions")
+        .update({ unit_price: amountFor(tx.gallons, data, 0) / tx.gallons })
+        .eq("id", tx.id);
+    }
   }
 
   revalidatePath("/", "layout");

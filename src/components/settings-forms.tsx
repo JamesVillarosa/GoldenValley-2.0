@@ -5,10 +5,9 @@ import { toast } from "sonner";
 import { lock } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { changePin, savePrice } from "@/lib/actions/client";
+import { changePin } from "@/lib/actions/client";
 
-export function SettingsForms({ price: initialPrice }: { price: number }) {
-  const [price, setPrice] = useState(String(initialPrice));
+export function SettingsForms() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,38 +28,6 @@ export function SettingsForms({ price: initialPrice }: { price: number }) {
 
   return (
     <>
-      <form
-        className="card flex flex-col gap-3 p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          run(() => savePrice(Number(price || 0)), "Price saved");
-        }}
-      >
-        <h2 className="section-title">Price</h2>
-        <div>
-          <label htmlFor="price" className="field-label">
-            Station price per gallon (₱)
-          </label>
-          <Input
-            id="price"
-            type="number"
-            min={0}
-            step="any"
-            inputMode="decimal"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            aria-describedby="price-help"
-          />
-          <p id="price-help" className="mt-1.5 text-sm text-ink-muted">
-            Charged to walk-ins and to every customer without their own price. Set a customer&apos;s own price
-            on their page. Past sales keep the price they were logged at.
-          </p>
-        </div>
-        <Button type="submit" variant="secondary" disabled={busy}>
-          Save price
-        </Button>
-      </form>
-
       <form
         className="card flex flex-col gap-3 p-4"
         onSubmit={(e) => {

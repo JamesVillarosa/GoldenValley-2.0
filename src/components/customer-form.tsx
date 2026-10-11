@@ -9,35 +9,45 @@ import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
+import { amountFor, peso } from "@/lib/format";
 import type { Customer, Driver } from "@/lib/supabase/types";
 import { deleteCustomer, saveCustomer } from "@/lib/actions/client";
 
 export function CustomerForm({
   customer,
   drivers,
-  stationPrice,
   areas,
+  initialName = "",
+  initialDriverId,
+  backToDeliver = false,
 }: {
+  /** Set when the customer is added from the Deliver screen: the name typed
+   * there, the driver picked there, and a return to it after saving. */
+  initialName?: string;
+  initialDriverId?: string;
+  backToDeliver?: boolean;
   /** Places already used by other customers, offered as suggestions. */
   areas: string[];
   customer?: Customer;
   drivers: Driver[];
-  stationPrice: number;
 }) {
   const router = useRouter();
-  const [name, setName] = useState(customer?.name ?? "");
+  const [name, setName] = useState(customer?.name ?? initialName);
   const [phone, setPhone] = useState(customer?.phone ?? "");
   const [address, setAddress] = useState(customer?.address ?? "");
-  const [driverId, setDriverId] = useState(customer?.driver_id ?? drivers[0]?.id ?? "");
+  const [driverId, setDriverId] = useState(customer?.driver_id ?? initialDriverId ?? drivers[0]?.id ?? "");
   const [containers, setContainers] = useState(customer?.containers_out ?? 0);
   const [area, setArea] = useState(customer?.area ?? "");
-  // The price is typed the way it was agreed: "50 pesos for 3 gallons".
-  const [price, setPrice] = useState(
-    customer?.price_per_gallon != null
-      ? String(Math.round(customer.price_per_gallon * customer.price_qty * 100) / 100)
-      : ""
-  );
-  const [qty, setQty] = useState(String(customer?.price_qty ?? 1));
+  const hasDeal = !!customer && customer.price_qty > 1 && customer.deal_price != null;
+  const [price, setPrice] = useState(customer?.price_per_gallon?.toString() ?? "");
+  const [dealPrice, setDealPrice] = useState(hasDeal ? String(customer.deal_price) : "");
+  const [dealQty, setDealQty] = useState(hasDeal ? String(customer.price_qty) : "");
+  // Shows the deal worked out, so the manager can check it before saving.
+  const deal = { price_per_gallon: Number(price), price_qty: Number(dealQty), deal_price: Number(dealPrice) };
+  const example =
+    price && dealPrice && deal.price_qty > 1
+      ? `${deal.price_qty} gallons cost ${peso(amountFor(deal.price_qty, deal, 0))}, ${deal.price_qty + 1} gallons cost ${peso(amountFor(deal.price_qty + 1, deal, 0))}.`
+      : null;
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -53,11 +63,12 @@ export function CustomerForm({
         area,
         driverId,
         containersOut: containers,
-        pricePerGallon: price.trim() ? Number(price) / (Number(qty) || 1) : null,
-        priceQty: Number(qty) || 1,
+        pricePerGallon: price.trim() ? Number(price) : NaN,
+        dealPrice: dealPrice.trim() ? Number(dealPrice) : null,
+        dealQty: Number(dealQty) || 1,
       });
       toast.success(customer ? "Customer saved" : "Customer added");
-      router.replace(`/customers/${saved.id}`);
+      router.replace(backToDeliver ? `/?customer=${saved.id}` : `/customers/${saved.id}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save.");
       setBusy(false);
@@ -124,38 +135,53 @@ export function CustomerForm({
         />
       </div>
       <div>
-        <span className="field-label">Price</span>
+        <label htmlFor="price" className="field-label">
+          Price for 1 gallon (₱)
+        </label>
+        <Input
+          id="price"
+          required
+          type="number"
+          min={0}
+          step="any"
+          inputMode="decimal"
+          placeholder="20"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+        />
+      </div>
+      <div>
+        <span className="field-label">Deal for more gallons (optional)</span>
         <div className="flex items-center gap-2">
           <span className="text-ink-muted">₱</span>
           <Input
-            id="price"
-            aria-label="Price in pesos"
+            aria-label="Deal price in pesos"
             type="number"
             min={0}
             step="any"
             inputMode="decimal"
-            placeholder={String(stationPrice)}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            aria-describedby="price-help"
+            placeholder="50"
+            value={dealPrice}
+            onChange={(e) => setDealPrice(e.target.value)}
+            aria-describedby="deal-help"
             className="min-w-0 flex-1"
           />
           <span className="shrink-0 text-ink-muted">for</span>
           <Input
-            aria-label="Number of gallons for that price"
+            aria-label="Gallons in the deal"
             type="number"
-            min={1}
+            min={2}
             step={1}
             inputMode="numeric"
-            value={qty}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => setQty(e.target.value)}
+            placeholder="3"
+            value={dealQty}
+            onChange={(e) => setDealQty(e.target.value)}
             className="w-20 text-center"
           />
-          <span className="shrink-0 text-ink-muted">gal</span>
+          <span className="shrink-0 text-ink-muted">gallons</span>
         </div>
-        <p id="price-help" className="mt-1.5 text-sm text-ink-muted">
-          Leave the price blank to charge the station price. For a deal like 3 gallons for ₱50, type 50 for 3.
+        <p id="deal-help" className="mt-1.5 text-sm text-ink-muted">
+          {example ?? "Leave blank if every gallon costs the same. With ₱50 for 3 and ₱20 for 1, 4 gallons cost ₱70."}
         </p>
       </div>
       <div>

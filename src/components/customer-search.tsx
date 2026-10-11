@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react/dist/ssr";
-import { toast } from "sonner";
 import { searchCustomers } from "@/lib/actions/customers";
-import { peso } from "@/lib/format";
+import { gal, peso } from "@/lib/format";
 import type { Customer } from "@/lib/supabase/types";
 import { DropletStatus } from "@/components/droplet-status";
 import { Input } from "@/components/ui/input";
-import { saveCustomer } from "@/lib/actions/client";
 
 export function CustomerSearch({
   driverId,
@@ -53,15 +52,6 @@ export function CustomerSearch({
     setOpen(false);
   }
 
-  function handleCreate() {
-    startTransition(async () => {
-      try {
-        pick(await saveCustomer({ name: query, driverId }));
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not add customer.");
-      }
-    });
-  }
 
   if (selected) {
     return (
@@ -119,20 +109,21 @@ export function CustomerSearch({
               <DropletStatus status={customer.status} size={16} />
               <span className="min-w-0 flex-1 truncate font-medium">{customer.name}</span>
               {customer.usual_gallons != null && (
-                <span className="num shrink-0 text-sm text-ink-muted">{customer.usual_gallons} gal</span>
+                <span className="num shrink-0 text-sm text-ink-muted">{gal(customer.usual_gallons)}</span>
               )}
             </button>
           ))}
 
           {!isPending && name && !exactMatch && (
-            <button
-              type="button"
-              onClick={handleCreate}
+            // A new customer needs a price, so adding one opens the customer form
+            // and comes back here with them picked.
+            <Link
+              href={`/customers/new?from=deliver&driver=${driverId}&name=${encodeURIComponent(name)}`}
               className="flex min-h-12 w-full items-center gap-3 border-t border-border px-4 py-2.5 text-left font-medium text-deep-blue"
             >
               <Plus size={16} weight="bold" />
               Add &quot;{name}&quot; as new customer
-            </button>
+            </Link>
           )}
 
           {!isPending && results.length === 0 && !name && (

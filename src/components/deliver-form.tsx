@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -13,12 +13,13 @@ import { DayTotal, DeliveryList } from "@/components/delivery-list";
 import { Button } from "@/components/ui/button";
 import { getDriverDeliveries, type DriverDelivery } from "@/lib/actions/transactions";
 import { isClosed, manilaToday } from "@/lib/dates";
-import { gal, peso } from "@/lib/format";
+import { amountFor, gal, peso } from "@/lib/format";
 import type { Driver, Customer } from "@/lib/supabase/types";
 import { saveTransaction } from "@/lib/actions/client";
 
 const DEFAULT_GALLONS = 5;
 const WALK_IN = "walk-in";
+const LAST_GALLONS = "gv-last-gallons";
 
 export function DeliverForm({
   drivers,
@@ -33,14 +34,23 @@ export function DeliverForm({
 }) {
   const [driverId, setDriverId] = useState(initialCustomer?.driver_id ?? drivers[0]?.id ?? WALK_IN);
   const [customer, setCustomer] = useState(initialCustomer);
-  const [gallons, setGallons] = useState(initialCustomer?.usual_gallons ?? DEFAULT_GALLONS);
+  // Until a number is typed, the stepper shows the customer's usual order, or
+  // else the gallons last saved on this phone (the server cannot know those).
+  const lastGallons = useSyncExternalStore(
+    () => () => {},
+    () => Number(localStorage.getItem(LAST_GALLONS)) || DEFAULT_GALLONS,
+    () => DEFAULT_GALLONS
+  );
+  const [chosen, setGallons] = useState<number | null>(null);
+  const gallons = chosen ?? customer?.usual_gallons ?? lastGallons;
+  const [walkInPrice, setWalkInPrice] = useState(String(stationPrice));
   const [date, setDate] = useState(today);
   const [saving, setSaving] = useState(false);
   const [deliveries, setDeliveries] = useState<DriverDelivery[] | null>(null);
   const [reminding, setReminding] = useState(false);
 
   const walkIn = driverId === WALK_IN;
-  const price = customer?.price_per_gallon ?? stationPrice;
+  const amount = amountFor(gallons, customer, walkIn ? Number(walkInPrice) || 0 : stationPrice);
   const backdated = date !== today;
 
   useEffect(() => {
@@ -64,7 +74,7 @@ export function DeliverForm({
 
   function pickCustomer(next: Customer | null) {
     setCustomer(next);
-    setGallons(next?.usual_gallons ?? DEFAULT_GALLONS);
+    setGallons(null);
   }
 
   // A customer who still owes money gets a reminder before the new sale is added.
@@ -84,7 +94,9 @@ export function DeliverForm({
         driverId: walkIn ? null : driverId,
         gallons,
         date,
+        ...(walkIn && { price: Number(walkInPrice) || 0 }),
       });
+      localStorage.setItem(LAST_GALLONS, String(gallons));
       setDeliveries((prev) => [{ ...tx, customerName: customer?.name ?? "Walk-in", driverName: null }, ...(prev ?? [])]);
       toast.success(`${gal(gallons)} saved for ${name}`);
       pickCustomer(null);
@@ -133,9 +145,19 @@ export function DeliverForm({
         />
 
         {walkIn ? (
-          <p className="rounded-md border border-border bg-mist px-4 py-3 text-[0.9375rem] text-ink-muted">
-            Sale at the station. No customer record and no driver commission.
-          </p>
+          <label className="flex min-h-12 items-center justify-between gap-3 rounded-md border border-border px-4 text-[0.9375rem] text-ink-muted">
+            Walk-in price for 1 gallon (₱)
+            <input
+              type="number"
+              min={0}
+              step="any"
+              inputMode="decimal"
+              value={walkInPrice}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setWalkInPrice(e.target.value)}
+              className="num h-11 w-20 bg-transparent text-right font-medium text-ink outline-none"
+            />
+          </label>
         ) : (
           <CustomerSearch driverId={driverId} selected={customer} onSelect={pickCustomer} />
         )}
@@ -176,7 +198,7 @@ export function DeliverForm({
             {saving
               ? "Saving..."
               : walkIn || customer
-                ? `Save ${gal(gallons)}${price > 0 ? ` · ${peso(gallons * price)}` : ""}`
+                ? `Save ${gal(gallons)}${amount > 0 ? ` · ${peso(amount)}` : ""}`
                 : "Pick a customer"}
           </span>
         </Button>

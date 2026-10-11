@@ -5,8 +5,7 @@ import { ChatText, PencilSimple, Phone } from "@phosphor-icons/react/dist/ssr";
 import { getCustomer } from "@/lib/actions/customers";
 import { getCustomerTransactions } from "@/lib/actions/transactions";
 import { getDrivers } from "@/lib/actions/drivers";
-import { priceLabel } from "@/lib/format";
-import { peso } from "@/lib/format";
+import { gal, peso, priceLabel } from "@/lib/format";
 import { CallButton } from "@/components/call-button";
 import { CustomerHistory } from "@/components/customer-history";
 import { DropletStatus } from "@/components/droplet-status";
@@ -27,9 +26,9 @@ export default async function CustomerDetailPage({ params }: PageProps<"/custome
   const facts = [
     ["Orders", customer.computed_interval_days && customer.status !== "new" ? `Every ${customer.computed_interval_days} days` : "Not enough history"],
     ["Next expected", customer.expected_next_date ? format(parseISO(customer.expected_next_date), "EEE, MMM d") : "After first delivery"],
-    ["Usual order", customer.usual_gallons != null ? `${customer.usual_gallons} gal` : "Unknown yet"],
+    ["Usual order", customer.usual_gallons != null ? gal(customer.usual_gallons) : "Unknown yet"],
     ["Containers lent", String(customer.containers_out)],
-    ["Price", customer.price_per_gallon != null ? priceLabel(customer.price_per_gallon, customer.price_qty) : "Station price"],
+    ["Price", customer.price_per_gallon != null ? priceLabel(customer) : "Not set yet"],
     ["Customer since", format(new Date(customer.created_at), "MMM yyyy")],
   ];
 

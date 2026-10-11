@@ -27,8 +27,10 @@ export interface Customer {
   containers_out: number;
   /** null = station price */
   price_per_gallon: number | null;
-  /** Gallons in the deal the price was typed as: 3 for "50 pesos for 3" */
+  /** Gallons in the deal: 3 for "50 pesos for 3". 1 = no deal */
   price_qty: number;
+  /** Pesos for every full group of `price_qty` gallons */
+  deal_price: number | null;
   computed_interval_days: number | null;
   usual_gallons: number | null;
   balance: number;

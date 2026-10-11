@@ -55,14 +55,6 @@ export async function getPrice(): Promise<number> {
   return Number(data.price_per_gallon);
 }
 
-export const savePrice = safe(async (price: number): Promise<void> => {
-  if (!Number.isFinite(price) || price < 0) throw new Error("Price must be 0 or more.");
-  const supabase = await db();
-  const { error } = await supabase.from("settings").update({ price_per_gallon: price }).eq("id", true);
-  if (error) throw new Error(error.message);
-  revalidatePath("/", "layout");
-});
-
 /** Payouts whose period falls inside the range, newest first. A week view
  * therefore counts the days already paid one by one. */
 export async function getPayouts(from = "2000-01-01", to = "2999-12-31", limit = 500): Promise<Payout[]> {

@@ -32,7 +32,7 @@ export async function notifyDue(supabase: SupabaseClient) {
     .join(" · ");
 
   const payload = JSON.stringify({
-    title: rows.length ? `About ${gallons} gal to load today` : "Nothing due today",
+    title: rows.length ? `About ${gallons} gallons to load today` : "Nothing due today",
     body: rows.length ? perDriver : "Nobody is expected to order today.",
     url: "/due",
   });
