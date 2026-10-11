@@ -10,6 +10,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   loading = false,
+  confirmDisabled = false,
   danger = false,
   children,
   onConfirm,
@@ -20,6 +21,8 @@ export function ConfirmDialog({
   description: string;
   confirmLabel?: string;
   loading?: boolean;
+  /** Keeps the confirm button off until a form inside the dialog is filled in. */
+  confirmDisabled?: boolean;
   /** Red confirm button, for actions that delete something. */
   danger?: boolean;
   children?: ReactNode;
@@ -47,7 +50,7 @@ export function ConfirmDialog({
         <Button variant="secondary" onClick={onCancel} className="flex-1 px-3">
           Cancel
         </Button>
-        <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={loading} className="h-12 flex-1 px-3">
+        <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={loading || confirmDisabled} className="h-12 flex-1 px-3">
           {loading ? "Working..." : confirmLabel}
         </Button>
       </div>

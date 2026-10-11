@@ -1,24 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Trash } from "@phosphor-icons/react/dist/ssr";
-import { Segmented } from "@/components/segmented";
-import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
-import { Input } from "@/components/ui/input";
+import { Plus, Trash } from "@phosphor-icons/react/dist/ssr";
+import { deleteExpense } from "@/lib/actions/client";
+import { ExpenseButton } from "@/components/expense-button";
 import { peso } from "@/lib/format";
 import type { Expense } from "@/lib/supabase/types";
-import { addExpense, deleteExpense } from "@/lib/actions/client";
 
-// Suggestions only: any other expense can be typed in.
-const SUGGESTED = {
-  daily: ["Gas", "Maintenance", "Filters", "Seals and caps"],
-  monthly: ["Meralco", "Water bill", "Rent"],
-};
-type Kind = keyof typeof SUGGESTED;
-
+/** What was spent in the viewed period. Adding is a small button; expenses are
+ * mostly logged from the Deliver screen. */
 export function ExpensePanel({
   expenses,
   today,
@@ -29,33 +21,38 @@ export function ExpensePanel({
   /** Month or year view: monthly bills are listed and counted. */
   longView: boolean;
 }) {
-  const [kind, setKind] = useState<Kind>("daily");
-  const [category, setCategory] = useState("");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(today);
   const [pending, startTransition] = useTransition();
+  const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
-  function run(action: () => Promise<void>, done: string) {
+  function remove(expense: Expense) {
     startTransition(async () => {
       try {
-        await action();
-        toast.success(done);
+        await deleteExpense(expense.id);
+        toast.success("Expense deleted");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not save.");
+        toast.error(error instanceof Error ? error.message : "Could not delete.");
       }
     });
   }
 
   return (
     <section aria-labelledby="expenses-title">
-      <h2 id="expenses-title" className="section-title pb-2">
-        Expenses
-      </h2>
+      <div className="flex items-center justify-between pb-2">
+        <h2 id="expenses-title" className="section-title">
+          Expenses
+          {total > 0 && <span className="num font-medium text-ink-muted"> · {peso(total)}</span>}
+        </h2>
+        <ExpenseButton
+          today={today}
+          className="press flex h-11 items-center gap-1.5 rounded-pill border border-border bg-surface px-4 font-display text-[0.9375rem] font-semibold text-deep-blue"
+        >
+          <Plus size={16} weight="bold" />
+          Add
+        </ExpenseButton>
+      </div>
       <div className="card">
         {expenses.length === 0 ? (
-          <p className="px-4 py-4 text-[0.9375rem] text-ink-muted">
-            No expenses in this period. Add gas, maintenance or Meralco below so profit is real.
-          </p>
+          <p className="px-4 py-4 text-[0.9375rem] text-ink-muted">No expenses in this period.</p>
         ) : (
           <ul className="divide-y divide-border">
             {expenses.map((e) => (
@@ -63,7 +60,9 @@ export function ExpensePanel({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{e.category}</p>
                   <p className="truncate text-sm text-ink-muted">
-                    {e.monthly ? `Monthly bill, ${format(new Date(`${e.spent_on}T00:00`), "MMMM")}` : format(new Date(`${e.spent_on}T00:00`), "MMM d")}
+                    {e.monthly
+                      ? `Monthly bill, ${format(new Date(`${e.spent_on}T00:00`), "MMMM")}`
+                      : format(new Date(`${e.spent_on}T00:00`), "MMM d")}
                     {e.note && ` · ${e.note}`}
                   </p>
                 </div>
@@ -72,7 +71,7 @@ export function ExpensePanel({
                   type="button"
                   aria-label={`Delete ${e.category} expense`}
                   disabled={pending}
-                  onClick={() => run(() => deleteExpense(e.id), "Expense deleted")}
+                  onClick={() => remove(e)}
                   className="press grid h-11 w-11 shrink-0 place-items-center rounded-pill text-ink-muted"
                 >
                   <Trash size={18} />
@@ -81,82 +80,11 @@ export function ExpensePanel({
             ))}
           </ul>
         )}
-
         {!longView && (
           <p className="border-t border-border px-4 py-3 text-sm text-ink-muted">
             Monthly bills like Meralco are counted in the Month and Year views.
           </p>
         )}
-        <details className="border-t border-border">
-          <summary className="flex min-h-12 cursor-pointer items-center px-4 font-medium text-deep-blue">
-            Add an expense
-          </summary>
-          <form
-            className="flex flex-col gap-3 px-4 pb-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              run(async () => {
-                await addExpense({ category, amount: Number(amount), date, monthly: kind === "monthly" });
-                setAmount("");
-                setCategory("");
-              }, "Expense added");
-            }}
-          >
-            <Segmented
-              label="Kind of expense"
-              options={[
-                { value: "daily", label: "Day to day" },
-                { value: "monthly", label: "Monthly bill" },
-              ]}
-              value={kind}
-              onChange={setKind}
-            />
-            <div>
-              <label htmlFor="expense-category" className="field-label">
-                What for
-              </label>
-              <Input
-                id="expense-category"
-                required
-                autoComplete="off"
-                placeholder={kind === "daily" ? "Gas, maintenance..." : "Meralco, water bill..."}
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
-                {SUGGESTED[kind].map((c) => (
-                  <Chip key={c} label={c} active={c === category} onClick={() => setCategory(c)} />
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="min-w-0 flex-1">
-                <label htmlFor="expense-amount" className="field-label">
-                  Amount (₱)
-                </label>
-                <Input
-                  id="expense-amount"
-                  required
-                  type="number"
-                  min={0.01}
-                  step="any"
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <label htmlFor="expense-date" className="field-label">
-                  {kind === "daily" ? "Date" : "Any day in the month"}
-                </label>
-                <Input id="expense-date" type="date" required max={today} value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-            </div>
-            <Button type="submit" variant="secondary" disabled={pending}>
-              {pending ? "Saving..." : "Add expense"}
-            </Button>
-          </form>
-        </details>
       </div>
     </section>
   );
