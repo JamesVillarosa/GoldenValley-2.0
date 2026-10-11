@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CaretLeft, CaretRight } from "@phosphor-icons/react/dist/ssr";
-import { PERIODS, manilaToday, type Period, type Range } from "@/lib/dates";
+import { PERIODS, lastWorkday, type Period, type Range } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
 const LABEL: Record<Period, string> = { day: "Day", week: "Week", month: "Month", year: "Year" };
@@ -17,7 +17,7 @@ export function PeriodNav({
   periods?: readonly Period[];
 }) {
   const href = (p: Period, d?: string) => `${path}?p=${p}${d ? `&d=${d}` : ""}`;
-  const atPresent = range.to >= manilaToday();
+  const atPresent = range.to >= lastWorkday();
 
   return (
     <div className="flex flex-col gap-3 pb-5">

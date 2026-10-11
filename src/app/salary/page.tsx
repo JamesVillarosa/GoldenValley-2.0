@@ -55,13 +55,21 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
                   </dt>
                   <dd className="num font-medium">{peso(pay.commission)}</dd>
                 </div>
+                {driver.bonuses.length > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink-muted">
+                      Bonus,{" "}
+                      {driver.bonuses.map((b) => `${peso(b.amount)} at ${gal(b.gallons)} a day`).join(", ")}
+                    </dt>
+                    <dd className="num font-medium">{peso(pay.bonus)}</dd>
+                  </div>
+                )}
               </dl>
 
               {driver.customers.length > 0 && (
                 <details className="border-t border-border">
                   <summary className="flex min-h-12 cursor-pointer items-center px-4 font-medium text-deep-blue">
-                    {driver.customers.length} {driver.customers.length === 1 ? "customer" : "customers"},{" "}
-                    {driver.deliveries} {driver.deliveries === 1 ? "delivery" : "deliveries"}
+                    Who they delivered to
                   </summary>
                   <ul className="divide-y divide-border border-t border-border">
                     {driver.customers.map((c) => (

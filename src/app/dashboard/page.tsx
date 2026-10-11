@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { eachDayOfInterval, eachMonthOfInterval, format, parseISO } from "date-fns";
 import { getExpenses, getSalaries, getStats } from "@/lib/actions/reports";
-import { manilaToday, resolveRange } from "@/lib/dates";
+import { isClosed, lastWorkday, manilaToday, resolveRange } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
 import { salaryOf } from "@/lib/salary";
 import { ExpensePanel } from "@/components/expense-panel";
@@ -30,33 +30,37 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { p, d } = await searchParams;
   const range = resolveRange(p as string, d as string);
   const before = resolveRange(range.period, range.prev);
-  const [stats, previous, salaries, expenses] = await Promise.all([
+  // Monthly bills (electricity) belong to the month, not to one day or week.
+  const longView = range.period === "month" || range.period === "year";
+  const [stats, previous, salaries, allExpenses] = await Promise.all([
     getStats(range.from, range.to, range.unit),
     getStats(before.from, before.to, before.unit),
     getSalaries(range.from, range.to),
     getExpenses(range.from, range.to),
   ]);
 
+  const expenses = longView ? allExpenses : allExpenses.filter((e) => !e.monthly);
   const sales = Number(stats.sales);
   const driverPay = salaries.reduce((sum, d) => sum + salaryOf(d).total, 0);
   const profit = sales - Number(stats.expenses) - driverPay;
-  const diff = stats.deliveries - previous.deliveries;
+  const diff = Number(stats.gallons) - Number(previous.gallons);
   const WHEN = { day: "today", week: "this week", month: "this month", year: "this year" } as const;
-  const current = range.to >= manilaToday();
-  const when = current ? WHEN[range.period] : range.period === "day" ? `on ${range.label}` : `in ${range.label}`;
+  const current = range.to >= lastWorkday();
+  const when = current && (range.period !== "day" || range.to === manilaToday()) ? WHEN[range.period] : range.period === "day" ? `on ${range.label}` : `in ${range.label}`;
   const compare =
     diff === 0
       ? `Same as the ${range.period} before`
-      : `${Math.abs(diff)} ${diff > 0 ? "more" : "fewer"} than the ${range.period} before`;
+      : `${gal(Math.abs(diff))} ${diff > 0 ? "more" : "less"} than the ${range.period} before`;
 
   const interval = { start: parseISO(range.from), end: parseISO(range.to) };
   const byBucket = new Map(stats.series.map((s) => [s.bucket, Number(s.gallons)]));
-  const buckets = (range.unit === "month" ? eachMonthOfInterval(interval) : eachDayOfInterval(interval)).map(
-    (date) => {
+  const buckets = (range.unit === "month" ? eachMonthOfInterval(interval) : eachDayOfInterval(interval))
+    .map((date) => {
       const key = format(date, "yyyy-MM-dd");
       return { key, date, gallons: byBucket.get(key) ?? 0 };
-    }
-  );
+    })
+    // Closed on Sundays: no empty bar for a day nothing can be sold.
+    .filter((b) => range.unit === "month" || !isClosed(b.key));
   const peak = Math.max(1, ...buckets.map((b) => b.gallons));
   const today = manilaToday();
   const tick = (date: Date, i: number) =>
@@ -64,7 +68,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       ? format(date, "MMMMM")
       : range.period === "week"
         ? format(date, "EEEEE")
-        : i % 7 === 0
+        : i % 6 === 0
           ? format(date, "d")
           : "";
   const topDriver = Math.max(1, ...stats.by_driver.map((x) => Number(x.gallons)));
@@ -78,12 +82,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         <section aria-labelledby="summary-title" className="card overflow-hidden">
           <div className="px-4 pt-4 pb-4">
             <h2 id="summary-title" className="font-display text-[1.375rem] leading-snug font-semibold">
-              You made <span className="num text-deep-blue">{stats.deliveries}</span>{" "}
-              {stats.deliveries === 1 ? "sale" : "sales"} {when}
+              You delivered <span className="num text-[1.75rem] text-deep-blue">{gal(stats.gallons)}</span> {when}
             </h2>
-            <p className="mt-1 text-[0.9375rem] text-ink-muted">
-              {gal(stats.gallons)} to {stats.customers} {stats.customers === 1 ? "customer" : "customers"}. {compare}.
-            </p>
+            <p className="mt-1 text-[0.9375rem] text-ink-muted">{compare}.</p>
           </div>
           <dl className="border-t border-border text-[0.9375rem]">
             <Line label="Sales" value={peso(sales)} />
@@ -149,9 +150,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                     className="mt-2 h-1.5 rounded-pill bg-aqua"
                     style={{ width: `${Math.max(2, (Number(driver.gallons) / topDriver) * 100)}%` }}
                   />
-                  <p className="mt-1.5 text-sm text-ink-muted">
-                    {driver.deliveries} {driver.deliveries === 1 ? "sale" : "sales"}
-                  </p>
                 </li>
               ))}
             </ul>
@@ -176,7 +174,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </section>
         )}
 
-        <ExpensePanel expenses={expenses} today={today} />
+        <ExpensePanel expenses={expenses} today={lastWorkday(today)} longView={longView} />
 
         <section aria-labelledby="now-title">
           <h2 id="now-title" className="section-title pb-2">

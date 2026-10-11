@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { X } from "@phosphor-icons/react/dist/ssr";
 import { saveDriver, removeDriver } from "@/lib/actions/drivers";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ interface EditableDriver {
   name: string;
   base_salary: number;
   rate_per_gallon: number;
+  bonuses: { gallons: number; amount: number }[];
 }
 
 /** Collapsed form to rename a driver and set their pay. Without a driver it
@@ -21,6 +23,11 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
   const [name, setName] = useState(driver?.name ?? "");
   const [base, setBase] = useState(String(driver?.base_salary ?? ""));
   const [rate, setRate] = useState(String(driver?.rate_per_gallon ?? ""));
+  const [bonuses, setBonuses] = useState(
+    (driver?.bonuses ?? []).map((b) => ({ gallons: String(b.gallons), amount: String(b.amount) }))
+  );
+  const setBonus = (i: number, change: { gallons?: string; amount?: string }) =>
+    setBonuses((list) => list.map((b, at) => (at === i ? { ...b, ...change } : b)));
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const id = driver?.id ?? "new";
@@ -35,6 +42,7 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
         setName("");
         setBase("");
         setRate("");
+        setBonuses([]);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save.");
@@ -47,14 +55,21 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
   return (
     <details ref={details} className={driver ? "border-t border-border" : undefined}>
       <summary className="flex min-h-12 cursor-pointer items-center px-4 font-medium text-deep-blue">
-        {driver ? "Edit name and pay" : "Add a driver"}
+        {driver ? "Edit name, pay and bonus" : "Add a driver"}
       </summary>
       <form
         className="flex flex-col gap-3 px-4 pb-4"
         onSubmit={(e) => {
           e.preventDefault();
           run(
-            () => saveDriver({ id: driver?.id, name, baseSalary: Number(base || 0), ratePerGallon: Number(rate || 0) }),
+            () =>
+              saveDriver({
+                id: driver?.id,
+                name,
+                baseSalary: Number(base || 0),
+                ratePerGallon: Number(rate || 0),
+                bonuses: bonuses.map((b) => ({ gallons: Number(b.gallons), amount: Number(b.amount) })),
+              }),
             driver ? "Driver saved" : "Driver added"
           );
         }}
@@ -95,6 +110,55 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
             />
           </div>
         </div>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="field-label">Bonus for a big day</legend>
+          {bonuses.map((b, i) => (
+            <div key={i} className="flex items-center gap-2 text-[0.9375rem] text-ink-muted">
+              <Input
+                aria-label={`Bonus ${i + 1}: gallons in a day`}
+                required
+                type="number"
+                min={1}
+                step="any"
+                inputMode="decimal"
+                value={b.gallons}
+                onChange={(e) => setBonus(i, { gallons: e.target.value })}
+                className="min-w-0 flex-1 px-2 text-center"
+              />
+              <span className="shrink-0">gal = +₱</span>
+              <Input
+                aria-label={`Bonus ${i + 1}: extra pesos`}
+                required
+                type="number"
+                min={1}
+                step="any"
+                inputMode="decimal"
+                value={b.amount}
+                onChange={(e) => setBonus(i, { amount: e.target.value })}
+                className="min-w-0 flex-1 px-2 text-center"
+              />
+              <button
+                type="button"
+                aria-label={`Remove bonus ${i + 1}`}
+                onClick={() => setBonuses((list) => list.filter((_, at) => at !== i))}
+                className="press grid h-11 w-11 shrink-0 place-items-center rounded-pill text-ink-muted"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          ))}
+          <p className="text-sm text-ink-muted">
+            Each target reached in one day adds its bonus. Example: 65 gal = +₱25 and 100 gal = +₱25 pays ₱50 on a
+            100-gallon day.
+          </p>
+          <Button
+            variant="ghost"
+            onClick={() => setBonuses((list) => [...list, { gallons: "", amount: "" }])}
+            className="self-start px-0 text-deep-blue"
+          >
+            + Add a bonus
+          </Button>
+        </fieldset>
         <div className="flex gap-3">
           {driver && canRemove && (
             <Button variant="ghost" onClick={() => setConfirming(true)} disabled={busy} className="text-danger-ink">
@@ -112,7 +176,8 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
           open={confirming}
           title={`Remove ${driver.name}?`}
           description="They leave the driver list but their past deliveries are kept. Move their customers to another driver from the Customers tab."
-          confirmLabel="Remove"
+          danger
+        confirmLabel="Remove"
           loading={busy}
           onConfirm={() => run(() => removeDriver(driver.id), "Driver removed")}
           onCancel={() => setConfirming(false)}

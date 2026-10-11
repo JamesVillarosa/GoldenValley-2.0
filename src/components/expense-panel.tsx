@@ -5,17 +5,32 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { Trash } from "@phosphor-icons/react/dist/ssr";
 import { addExpense, deleteExpense } from "@/lib/actions/reports";
+import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { peso } from "@/lib/format";
 import type { Expense } from "@/lib/supabase/types";
 
-const CATEGORIES = ["Fuel", "Filters", "Seals and caps", "Electricity", "Water bill", "Repairs", "Other"];
+// Suggestions only: any other expense can be typed in.
+const SUGGESTED = {
+  daily: ["Gas", "Maintenance", "Filters", "Seals and caps"],
+  monthly: ["Meralco", "Water bill", "Rent"],
+};
+type Kind = keyof typeof SUGGESTED;
 
-export function ExpensePanel({ expenses, today }: { expenses: Expense[]; today: string }) {
-  const [category, setCategory] = useState(CATEGORIES[0]);
+export function ExpensePanel({
+  expenses,
+  today,
+  longView,
+}: {
+  expenses: Expense[];
+  today: string;
+  /** Month or year view: monthly bills are listed and counted. */
+  longView: boolean;
+}) {
+  const [kind, setKind] = useState<Kind>("daily");
+  const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
   const [date, setDate] = useState(today);
   const [pending, startTransition] = useTransition();
 
@@ -38,7 +53,7 @@ export function ExpensePanel({ expenses, today }: { expenses: Expense[]; today: 
       <div className="card">
         {expenses.length === 0 ? (
           <p className="px-4 py-4 text-[0.9375rem] text-ink-muted">
-            No expenses in this period. Add fuel, filters or seals below so profit is real.
+            No expenses in this period. Add gas, maintenance or Meralco below so profit is real.
           </p>
         ) : (
           <ul className="divide-y divide-border">
@@ -47,7 +62,7 @@ export function ExpensePanel({ expenses, today }: { expenses: Expense[]; today: 
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{e.category}</p>
                   <p className="truncate text-sm text-ink-muted">
-                    {format(new Date(`${e.spent_on}T00:00`), "MMM d")}
+                    {e.monthly ? `Monthly bill, ${format(new Date(`${e.spent_on}T00:00`), "MMMM")}` : format(new Date(`${e.spent_on}T00:00`), "MMM d")}
                     {e.note && ` · ${e.note}`}
                   </p>
                 </div>
@@ -66,6 +81,11 @@ export function ExpensePanel({ expenses, today }: { expenses: Expense[]; today: 
           </ul>
         )}
 
+        {!longView && (
+          <p className="border-t border-border px-4 py-3 text-sm text-ink-muted">
+            Monthly bills like Meralco are counted in the Month and Year views.
+          </p>
+        )}
         <details className="border-t border-border">
           <summary className="flex min-h-12 cursor-pointer items-center px-4 font-medium text-deep-blue">
             Add an expense
@@ -75,29 +95,51 @@ export function ExpensePanel({ expenses, today }: { expenses: Expense[]; today: 
             onSubmit={(e) => {
               e.preventDefault();
               run(async () => {
-                await addExpense({ category, amount: Number(amount), note, date });
+                await addExpense({ category, amount: Number(amount), date, monthly: kind === "monthly" });
                 setAmount("");
-                setNote("");
+                setCategory("");
               }, "Expense added");
             }}
           >
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label htmlFor="expense-category" className="field-label">
-                  What for
-                </label>
-                <select
-                  id="expense-category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="h-[52px] w-full rounded-md border border-border bg-surface px-3 text-[1.0625rem] text-ink outline-none focus:border-aqua focus:ring-[3px] focus:ring-aqua/25"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
+            <Segmented
+              label="Kind of expense"
+              options={[
+                { value: "daily", label: "Day to day" },
+                { value: "monthly", label: "Monthly bill" },
+              ]}
+              value={kind}
+              onChange={setKind}
+            />
+            <div>
+              <label htmlFor="expense-category" className="field-label">
+                What for
+              </label>
+              <Input
+                id="expense-category"
+                required
+                autoComplete="off"
+                placeholder={kind === "daily" ? "Gas, maintenance..." : "Meralco, water bill..."}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                {SUGGESTED[kind].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={c === category}
+                    onClick={() => setCategory(c)}
+                    className={`press h-9 rounded-pill border px-3 text-sm font-medium ${
+                      c === category ? "border-deep-blue bg-deep-blue text-white" : "border-border bg-surface text-deep-blue"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
               </div>
-              <div className="flex-1">
+            </div>
+            <div className="flex gap-3">
+              <div className="min-w-0 flex-1">
                 <label htmlFor="expense-amount" className="field-label">
                   Amount (₱)
                 </label>
@@ -112,19 +154,11 @@ export function ExpensePanel({ expenses, today }: { expenses: Expense[]; today: 
                   onChange={(e) => setAmount(e.target.value)}
                 />
               </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <label htmlFor="expense-date" className="field-label">
-                  Date
+                  {kind === "daily" ? "Date" : "Any day in the month"}
                 </label>
                 <Input id="expense-date" type="date" required max={today} value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div className="flex-1">
-                <label htmlFor="expense-note" className="field-label">
-                  Note (optional)
-                </label>
-                <Input id="expense-note" value={note} onChange={(e) => setNote(e.target.value)} />
               </div>
             </div>
             <Button type="submit" variant="secondary" disabled={pending}>
