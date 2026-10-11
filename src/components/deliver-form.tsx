@@ -11,10 +11,11 @@ import { GallonStepper } from "@/components/gallon-stepper";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DayTotal, DeliveryList } from "@/components/delivery-list";
 import { Button } from "@/components/ui/button";
-import { saveTransaction, getDriverDeliveries, type DriverDelivery } from "@/lib/actions/transactions";
+import { getDriverDeliveries, type DriverDelivery } from "@/lib/actions/transactions";
 import { isClosed, manilaToday } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
 import type { Driver, Customer } from "@/lib/supabase/types";
+import { saveTransaction } from "@/lib/actions/client";
 
 const DEFAULT_GALLONS = 5;
 const WALK_IN = "walk-in";

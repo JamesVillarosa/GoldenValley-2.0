@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { changePin, lock } from "@/lib/actions/auth";
-import { savePrice } from "@/lib/actions/reports";
+import { lock } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { changePin, savePrice } from "@/lib/actions/client";
 
 export function SettingsForms({ price: initialPrice }: { price: number }) {
   const [price, setPrice] = useState(String(initialPrice));

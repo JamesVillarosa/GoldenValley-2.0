@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
-import { searchCustomers, saveCustomer } from "@/lib/actions/customers";
+import { searchCustomers } from "@/lib/actions/customers";
 import { peso } from "@/lib/format";
 import type { Customer } from "@/lib/supabase/types";
 import { DropletStatus } from "@/components/droplet-status";
 import { Input } from "@/components/ui/input";
+import { saveCustomer } from "@/lib/actions/client";
 
 export function CustomerSearch({
   driverId,

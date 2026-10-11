@@ -1,5 +1,6 @@
 "use server";
 
+import { safe } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/supabase/server";
 import type { Bonus, Driver } from "@/lib/supabase/types";
@@ -25,7 +26,7 @@ export interface DriverInput {
   bonuses?: Bonus[];
 }
 
-export async function saveDriver(input: DriverInput): Promise<void> {
+export const saveDriver = safe(async (input: DriverInput): Promise<void> => {
   const name = input.name.trim();
   if (!name) throw new Error("Driver name is required.");
   if (!Number.isFinite(input.baseSalary) || input.baseSalary < 0) {
@@ -48,10 +49,10 @@ export async function saveDriver(input: DriverInput): Promise<void> {
 
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
 /** Drivers are hidden, never deleted: their past deliveries and customers stay. */
-export async function removeDriver(driverId: string): Promise<void> {
+export const removeDriver = safe(async (driverId: string): Promise<void> => {
   const supabase = await db();
   const { count } = await supabase
     .from("drivers")
@@ -62,4 +63,4 @@ export async function removeDriver(driverId: string): Promise<void> {
   const { error } = await supabase.from("drivers").update({ active: false }).eq("id", driverId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});

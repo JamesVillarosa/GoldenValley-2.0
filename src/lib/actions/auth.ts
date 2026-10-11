@@ -1,5 +1,6 @@
 "use server";
 
+import { safe } from "@/lib/result";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, hashPin, sessionToken } from "@/lib/auth";
@@ -58,14 +59,14 @@ export async function unlock(pin: string): Promise<string> {
   redirect("/");
 }
 
-export async function changePin(current: string, next: string): Promise<void> {
+export const changePin = safe(async (current: string, next: string): Promise<void> => {
   if (!PIN_FORMAT.test(next)) throw new Error("New PIN must be 4 to 8 digits.");
   const supabase = await db();
   const { data } = await supabase.from("settings").select("pin_hash").single();
   if (data?.pin_hash !== hashPin(current)) throw new Error("Current PIN is wrong.");
   const { error } = await supabase.from("settings").update({ pin_hash: hashPin(next) }).eq("id", true);
   if (error) throw new Error(error.message);
-}
+});
 
 export async function lock(): Promise<void> {
   (await cookies()).delete(SESSION_COOKIE);

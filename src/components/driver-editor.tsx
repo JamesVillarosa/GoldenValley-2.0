@@ -3,10 +3,10 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { X } from "@phosphor-icons/react/dist/ssr";
-import { saveDriver, removeDriver } from "@/lib/actions/drivers";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { saveDriver, removeDriver } from "@/lib/actions/client";
 
 interface EditableDriver {
   id: string;

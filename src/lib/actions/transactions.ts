@@ -1,5 +1,6 @@
 "use server";
 
+import { safe } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { isClosed, manilaToday } from "@/lib/dates";
 import { db } from "@/lib/supabase/server";
@@ -14,7 +15,7 @@ export interface SaveTransactionInput {
   date: string;
 }
 
-export async function saveTransaction(input: SaveTransactionInput): Promise<Transaction> {
+export const saveTransaction = safe(async (input: SaveTransactionInput): Promise<Transaction> => {
   if (!input.customerId !== !input.driverId) throw new Error("Pick a customer first.");
   if (!Number.isFinite(input.gallons) || input.gallons <= 0) {
     throw new Error("Gallons must be a positive number.");
@@ -55,32 +56,32 @@ export async function saveTransaction(input: SaveTransactionInput): Promise<Tran
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
   return data;
-}
+});
 
-export async function deleteTransaction(transactionId: string): Promise<void> {
+export const deleteTransaction = safe(async (transactionId: string): Promise<void> => {
   const supabase = await db();
   const { error } = await supabase.from("transactions").delete().eq("id", transactionId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
-export async function setGallons(transactionId: string, gallons: number): Promise<void> {
+export const setGallons = safe(async (transactionId: string, gallons: number): Promise<void> => {
   if (!Number.isFinite(gallons) || gallons <= 0) throw new Error("Gallons must be a positive number.");
   const supabase = await db();
   const { error } = await supabase.from("transactions").update({ gallons }).eq("id", transactionId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
-export async function setPaid(transactionId: string, paid: boolean): Promise<void> {
+export const setPaid = safe(async (transactionId: string, paid: boolean): Promise<void> => {
   const supabase = await db();
   const { error } = await supabase.from("transactions").update({ paid }).eq("id", transactionId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
 /** Customer paid off everything they owe. */
-export async function settleCustomer(customerId: string): Promise<void> {
+export const settleCustomer = safe(async (customerId: string): Promise<void> => {
   const supabase = await db();
   const { error } = await supabase
     .from("transactions")
@@ -89,7 +90,7 @@ export async function settleCustomer(customerId: string): Promise<void> {
     .eq("paid", false);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
 export async function getCustomerTransactions(customerId: string): Promise<Transaction[]> {
   const supabase = await db();

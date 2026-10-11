@@ -4,10 +4,10 @@ import { useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { CheckCircle } from "@phosphor-icons/react/dist/ssr";
-import { deletePayout, recordPayout } from "@/lib/actions/reports";
 import { Button } from "@/components/ui/button";
 import { peso } from "@/lib/format";
 import type { Payout } from "@/lib/supabase/types";
+import { deletePayout, recordPayout } from "@/lib/actions/client";
 
 const periodLabel = (p: Payout) =>
   p.period_from === p.period_to

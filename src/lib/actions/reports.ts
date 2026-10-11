@@ -1,5 +1,6 @@
 "use server";
 
+import { safe } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { manilaToday } from "@/lib/dates";
 import { db } from "@/lib/supabase/server";
@@ -54,13 +55,13 @@ export async function getPrice(): Promise<number> {
   return Number(data.price_per_gallon);
 }
 
-export async function savePrice(price: number): Promise<void> {
+export const savePrice = safe(async (price: number): Promise<void> => {
   if (!Number.isFinite(price) || price < 0) throw new Error("Price must be 0 or more.");
   const supabase = await db();
   const { error } = await supabase.from("settings").update({ price_per_gallon: price }).eq("id", true);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
 /** Payouts whose period falls inside the range, newest first. A week view
  * therefore counts the days already paid one by one. */
@@ -77,7 +78,7 @@ export async function getPayouts(from = "2000-01-01", to = "2999-12-31", limit =
   return data ?? [];
 }
 
-export async function recordPayout(driverId: string, from: string, to: string, amount: number): Promise<void> {
+export const recordPayout = safe(async (driverId: string, from: string, to: string, amount: number): Promise<void> => {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Nothing to pay for this period.");
   const supabase = await db();
   const { error } = await supabase
@@ -85,14 +86,14 @@ export async function recordPayout(driverId: string, from: string, to: string, a
     .insert({ driver_id: driverId, period_from: from, period_to: to, amount });
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
-export async function deletePayout(payoutId: string): Promise<void> {
+export const deletePayout = safe(async (payoutId: string): Promise<void> => {
   const supabase = await db();
   const { error } = await supabase.from("payouts").delete().eq("id", payoutId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
 export async function getExpenses(from: string, to: string): Promise<Expense[]> {
   const supabase = await db();
@@ -108,7 +109,7 @@ export async function getExpenses(from: string, to: string): Promise<Expense[]> 
   return data ?? [];
 }
 
-export async function addExpense(input: { category: string; amount: number; date: string; monthly: boolean }): Promise<void> {
+export const addExpense = safe(async (input: { category: string; amount: number; date: string; monthly: boolean }): Promise<void> => {
   if (!input.category.trim()) throw new Error("Pick what the expense was for.");
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error("Amount must be more than 0.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date > manilaToday()) {
@@ -123,11 +124,11 @@ export async function addExpense(input: { category: string; amount: number; date
   });
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});
 
-export async function deleteExpense(expenseId: string): Promise<void> {
+export const deleteExpense = safe(async (expenseId: string): Promise<void> => {
   const supabase = await db();
   const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});

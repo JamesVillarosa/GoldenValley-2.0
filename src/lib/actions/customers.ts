@@ -1,5 +1,6 @@
 "use server";
 
+import { safe } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { lastWorkday, manilaToday, shiftDays, stepWorkday } from "@/lib/dates";
 import { db } from "@/lib/supabase/server";
@@ -85,7 +86,7 @@ export async function getAreas(): Promise<string[]> {
   return [...new Set((data ?? []).map((row) => row.area as string))].sort((a, b) => a.localeCompare(b));
 }
 
-export async function saveCustomer(input: CustomerInput): Promise<Customer> {
+export const saveCustomer = safe(async (input: CustomerInput): Promise<Customer> => {
   const name = input.name.trim().replace(/\s+/g, " ");
   if (!name) throw new Error("Customer name is required.");
   if (!input.driverId) throw new Error("Pick a driver for this customer.");
@@ -140,12 +141,12 @@ export async function saveCustomer(input: CustomerInput): Promise<Customer> {
 
   revalidatePath("/", "layout");
   return data;
-}
+});
 
 /** Removes the customer record. Their past sales stay in the reports. */
-export async function deleteCustomer(customerId: string): Promise<void> {
+export const deleteCustomer = safe(async (customerId: string): Promise<void> => {
   const supabase = await db();
   const { error } = await supabase.from("customers").delete().eq("id", customerId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
-}
+});

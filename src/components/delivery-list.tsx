@@ -5,9 +5,10 @@ import { toast } from "sonner";
 import { PencilSimple, Trash } from "@phosphor-icons/react/dist/ssr";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { GallonStepper } from "@/components/gallon-stepper";
-import { deleteTransaction, setGallons, setPaid, type DriverDelivery } from "@/lib/actions/transactions";
+import { type DriverDelivery } from "@/lib/actions/transactions";
 import { gal, peso } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { deleteTransaction, setGallons, setPaid } from "@/lib/actions/client";
 
 type Rows = DriverDelivery[] | null;
 type Ask = { kind: "paid" | "gallons" | "delete"; tx: DriverDelivery };
