@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { CheckCircle, Warning } from "@phosphor-icons/react/dist/ssr";
-import { recordPayout, undoPayouts } from "@/lib/actions/client";
+import { recordPayout, undoPayout } from "@/lib/actions/client";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { peso } from "@/lib/format";
@@ -12,101 +12,82 @@ import type { Payout } from "@/lib/supabase/types";
 
 const day = (date: string) => format(new Date(`${date}T00:00`), "MMM d");
 
-/** Marks a driver's salary for the viewed period as handed over, and keeps
- * the record of every payout. A payout is stored per day worked, so the day,
- * week and month views always agree on what is paid. */
+/** What a driver is still owed and the record of everything handed over.
+ * The amount is everything earned up to `asOf` minus everything ever paid
+ * (salary and bale), so it reads the same from the day, week or month view. */
 export function PayoutControl({
   driverId,
   driverName,
-  from,
-  to,
-  remaining,
-  paidInPeriod,
+  asOf,
+  current,
+  owed,
   history,
 }: {
+  /** The view reaches today. Looking back at an old day, later payouts make
+   * "paid ahead" meaningless, so it is only reported for the present. */
+  current: boolean;
   driverId: string;
   driverName: string;
-  from: string;
-  to: string;
-  /** Earned minus paid for the period. Negative = paid more than earned. */
-  remaining: number;
-  paidInPeriod: Payout[];
+  /** Last day counted: the end of the viewed period, never later than today. */
+  asOf: string;
+  /** Negative = paid ahead (a bale not yet earned back, or a sale changed after paying). */
+  owed: number;
   history: Payout[];
 }) {
   const [pending, startTransition] = useTransition();
-  const [asking, setAsking] = useState<"pay" | "undo" | null>(null);
-  const paid = paidInPeriod.reduce((sum, p) => sum + Number(p.amount), 0);
+  const [paying, setPaying] = useState(false);
+  const [undoing, setUndoing] = useState<Payout | null>(null);
 
-  function confirm() {
-    const kind = asking;
-    setAsking(null);
+  function run(action: () => Promise<string>) {
+    setPaying(false);
+    setUndoing(null);
     startTransition(async () => {
       try {
-        if (kind === "pay") toast.success(`${peso(await recordPayout(driverId, from, to))} marked as paid`);
-        else {
-          await undoPayouts(driverId, from, to);
-          toast.success("Payout undone");
-        }
+        toast.success(await action());
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not save.");
       }
     });
   }
 
-  // Day rows saved in one tap share a timestamp: shown as one payout.
-  const groups = Object.values(
-    history.reduce<Record<string, { at: string; from: string; to: string; amount: number }>>((all, p) => {
-      const g = (all[p.paid_at] ??= { at: p.paid_at, from: p.period_from, to: p.period_to, amount: 0 });
-      g.amount += Number(p.amount);
-      if (p.period_from < g.from) g.from = p.period_from;
-      if (p.period_to > g.to) g.to = p.period_to;
-      return all;
-    }, {})
-  ).sort((a, b) => b.at.localeCompare(a.at));
-
   return (
     <div className="border-t border-border">
-      {paid > 0 && (
-        <div className="flex items-center gap-2 py-1 pr-1.5 pl-4">
-          <CheckCircle size={18} weight="fill" className="shrink-0 text-success-ink" />
-          <p className="min-w-0 flex-1 text-[0.9375rem]">
-            <span className="num font-semibold">{peso(paid)}</span>
-            <span className="text-ink-muted"> already paid</span>
-          </p>
-          <Button variant="ghost" disabled={pending} onClick={() => setAsking("undo")}>
-            Undo
-          </Button>
-        </div>
-      )}
-
-      {remaining > 0.004 && (
+      {owed > 0.004 ? (
         <div className="px-4 py-3">
-          <Button disabled={pending} onClick={() => setAsking("pay")} className="h-12 w-full">
-            {pending ? "Saving..." : `Mark ${peso(remaining)} as paid`}
+          <p className="pb-2 text-sm text-ink-muted">Everything not yet paid, up to {day(asOf)}</p>
+          <Button disabled={pending} onClick={() => setPaying(true)} className="h-12 w-full">
+            {pending ? "Saving..." : `Mark ${peso(owed)} as paid`}
           </Button>
         </div>
-      )}
-
-      {remaining < -0.004 && (
+      ) : owed < -0.004 && current ? (
         <p className="flex items-start gap-2 px-4 py-3 text-[0.9375rem] font-medium text-warning-ink">
           <Warning size={18} weight="fill" className="mt-0.5 shrink-0" />
-          Paid {peso(-remaining)} more than earned. A sale or the pay rules changed after paying.
+          Paid ahead by {peso(-owed)} (bale, or a sale changed after paying). It comes off the next pay.
         </p>
+      ) : (
+        history.length > 0 && (
+          <p className="flex items-center gap-2 px-4 py-3 text-[0.9375rem] font-medium text-success-ink">
+            <CheckCircle size={18} weight="fill" className="shrink-0" />
+            All paid up to {day(asOf)}
+          </p>
+        )
       )}
 
-      {groups.length > 0 && (
+      {history.length > 0 && (
         <details className="border-t border-border">
           <summary className="flex min-h-12 cursor-pointer items-center px-4 font-medium text-deep-blue">
-            Payout history
+            Payouts and bale
           </summary>
           <ul className="divide-y divide-border border-t border-border">
-            {groups.map((g) => (
-              <li key={g.at} className="flex justify-between gap-3 px-4 py-2.5 text-[0.9375rem]">
-                <span className="text-ink-muted">
-                  For {g.from === g.to ? day(g.from) : `${day(g.from)} - ${day(g.to)}`}, paid{" "}
-                  {format(new Date(g.at), "MMM d")}
+            {history.map((p) => (
+              <li key={p.id} className="flex items-center gap-2 py-1 pr-1.5 pl-4 text-[0.9375rem]">
+                <span className="min-w-0 flex-1 text-ink-muted">
+                  {p.kind === "advance" ? `Bale, ${day(p.period_to)}` : `Salary up to ${day(p.period_to)}`}
                 </span>
-                <span className="num shrink-0 font-medium">{peso(g.amount)}</span>
+                <span className="num shrink-0 font-medium">{peso(p.amount)}</span>
+                <Button variant="ghost" disabled={pending} onClick={() => setUndoing(p)}>
+                  Undo
+                </Button>
               </li>
             ))}
           </ul>
@@ -114,17 +95,27 @@ export function PayoutControl({
       )}
 
       <ConfirmDialog
-        open={asking !== null}
-        title={asking === "undo" ? `Undo ${driverName}'s payout?` : `Pay ${driverName} ${peso(remaining)}?`}
-        description={
-          asking === "undo"
-            ? `${peso(paid)} will go back to "still to pay" for ${from === to ? day(from) : `${day(from)} - ${day(to)}`}.`
-            : `Salary for ${from === to ? day(from) : `${day(from)} - ${day(to)}`} will be recorded as handed over.`
-        }
-        confirmLabel={asking === "undo" ? "Undo payout" : "Yes, paid"}
-        danger={asking === "undo"}
-        onConfirm={confirm}
-        onCancel={() => setAsking(null)}
+        open={paying}
+        title={`Pay ${driverName} ${peso(owed)}?`}
+        description={`Everything not yet paid up to ${day(asOf)} will be recorded as handed over.`}
+        confirmLabel="Yes, paid"
+        onConfirm={() => run(async () => `${peso(await recordPayout(driverId, asOf))} marked as paid`)}
+        onCancel={() => setPaying(false)}
+      />
+      <ConfirmDialog
+        open={!!undoing}
+        title={undoing?.kind === "advance" ? "Remove this bale?" : "Undo this payout?"}
+        description={undoing ? `${peso(undoing.amount)} goes back to what ${driverName} is still owed.` : ""}
+        confirmLabel={undoing?.kind === "advance" ? "Remove" : "Undo payout"}
+        danger
+        onConfirm={() => {
+          const id = undoing!.id;
+          run(async () => {
+            await undoPayout(id);
+            return "Removed";
+          });
+        }}
+        onCancel={() => setUndoing(null)}
       />
     </div>
   );

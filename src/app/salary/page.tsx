@@ -1,5 +1,5 @@
-import { getPayouts, getSalaries } from "@/lib/actions/reports";
-import { resolveRange } from "@/lib/dates";
+import { getOwed, getPayouts, getSalaries } from "@/lib/actions/reports";
+import { lastWorkday, resolveRange } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
 import { salaryOf } from "@/lib/salary";
 import { Fresh } from "@/components/fresh";
@@ -11,34 +11,34 @@ import { PeriodNav } from "@/components/period-nav";
 export default async function SalaryPage({ searchParams }: PageProps<"/salary">) {
   const { p, d } = await searchParams;
   const range = resolveRange(p === "year" ? "month" : (p as string), d as string);
-  const [drivers, paid, history] = await Promise.all([
+  // Owed is counted up to the end of the viewed period, never past today.
+  const today = lastWorkday();
+  const asOf = range.to > today ? today : range.to;
+  const [drivers, owed, history] = await Promise.all([
     getSalaries(range.from, range.to),
-    getPayouts(range.from, range.to),
-    getPayouts(undefined, undefined, 60),
+    getOwed(asOf),
+    getPayouts(undefined, undefined, 300),
   ]);
   const payroll = drivers.reduce((sum, driver) => sum + salaryOf(driver).total, 0);
-  const paidTo = (driverId: string) =>
-    paid.filter((p) => p.driver_id === driverId).reduce((sum, p) => sum + Number(p.amount), 0);
-  // Per driver, so paying one driver too much never hides what another is owed.
-  const unpaid = drivers.reduce((sum, d) => sum + Math.max(0, salaryOf(d).total - paidTo(d.id)), 0);
+  const owedTo = (driverId: string) => Number(owed.find((o) => o.driver_id === driverId)?.owed ?? 0);
+  // Per driver, so paying one driver ahead never hides what another is owed.
+  const unpaid = drivers.reduce((sum, d) => sum + Math.max(0, owedTo(d.id)), 0);
 
   return (
     <div className="page">
       <Fresh />
       <PageHeader title="Salary" sub={
-          payroll === 0
+          payroll === 0 && unpaid === 0
             ? "No salary earned in this period"
             : unpaid > 0
-              ? `${peso(payroll)} earned, ${peso(unpaid)} still to pay`
-              : `${peso(payroll)} earned, all paid`
+              ? `${peso(payroll)} earned in this period, ${peso(unpaid)} still to pay`
+              : `${peso(payroll)} earned in this period, all paid`
         } />
       <PeriodNav path="/salary" range={range} periods={["day", "week", "month"]} />
 
       <ul className="flex flex-col gap-4">
         {drivers.map((driver) => {
           const pay = salaryOf(driver);
-          const mine = paid.filter((p) => p.driver_id === driver.id);
-          const remaining = pay.total - paidTo(driver.id);
           return (
             <li key={driver.id} className="card">
               <div className="flex items-baseline justify-between gap-3 px-4 pt-4">
@@ -89,10 +89,9 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
               <PayoutControl
                 driverId={driver.id}
                 driverName={driver.name}
-                from={range.from}
-                to={range.to}
-                remaining={remaining}
-                paidInPeriod={mine}
+                asOf={asOf}
+                current={asOf === today}
+                owed={owedTo(driver.id)}
                 history={history.filter((p) => p.driver_id === driver.id)}
               />
               <DriverEditor driver={driver} canRemove={drivers.length > 1} />

@@ -58,6 +58,8 @@ export interface Payout {
   period_from: string;
   period_to: string;
   amount: number;
+  /** "advance" = bale, salary handed over early */
+  kind: "salary" | "advance";
   paid_at: string;
 }
 
@@ -69,4 +71,6 @@ export interface Expense {
   note: string | null;
   /** A monthly bill: counted in the month and year reports only */
   monthly: boolean;
+  /** The driver who paid it out of the day's collection; null = the manager */
+  driver_id: string | null;
 }
