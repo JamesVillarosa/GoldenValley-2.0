@@ -26,7 +26,7 @@ export function LoginForm({ firstRun }: { firstRun: boolean }) {
 
   return (
     <form onSubmit={submit} className="mx-auto flex w-full max-w-xs flex-1 flex-col justify-center px-4 pb-16">
-      <Image src="/logo.png" alt="" width={602} height={176} priority unoptimized className="h-auto w-40" />
+      <Image src="/logo.png" alt="" width={602} height={176} priority unoptimized className="h-auto w-56" />
       <h1 className="mt-5 font-display text-[1.75rem] leading-tight font-semibold tracking-[-0.02em]">
         Golden Valley
       </h1>

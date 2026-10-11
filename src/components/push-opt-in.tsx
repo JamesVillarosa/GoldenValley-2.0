@@ -39,19 +39,24 @@ export function PushOptIn() {
   async function handleEnable() {
     setLoading(true);
     try {
-      const publicKey = await getVapidPublicKey();
+      // Asked first: phones only show the permission prompt as a direct result
+      // of the tap, and refuse it after a wait on the network.
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast.error("Notifications are blocked for this app. Allow them in the phone's settings, then try again.");
+        return;
+      }
+
+      const publicKey = (await getVapidPublicKey())?.trim();
       if (!publicKey) {
         toast.error("Push isn't configured yet.");
         return;
       }
 
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        toast.error("Notifications weren't allowed.");
-        return;
-      }
-
       const registration = await navigator.serviceWorker.ready;
+      // A subscription left over from an older install is tied to another key
+      // and makes subscribing fail, so it is dropped first.
+      await (await registration.pushManager.getSubscription())?.unsubscribe();
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -66,8 +71,9 @@ export function PushOptIn() {
 
       setEnabled(true);
       toast.success("Delivery reminders enabled.");
-    } catch {
-      toast.error("Couldn't enable reminders on this device.");
+    } catch (error) {
+      // The reason is shown so a failure on one phone can be told apart from another.
+      toast.error(`Couldn't turn on reminders: ${error instanceof Error ? error.message : "unknown error"}`);
     } finally {
       setLoading(false);
     }
