@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/supabase/server";
-import type { Driver } from "@/lib/supabase/types";
+import type { Bonus, Driver } from "@/lib/supabase/types";
 
 export async function getDrivers(): Promise<Driver[]> {
   const supabase = await db();
@@ -22,6 +22,7 @@ export interface DriverInput {
   name: string;
   baseSalary: number;
   ratePerGallon: number;
+  bonuses?: Bonus[];
 }
 
 export async function saveDriver(input: DriverInput): Promise<void> {
@@ -34,7 +35,12 @@ export async function saveDriver(input: DriverInput): Promise<void> {
     throw new Error("Commission must be 0 or more.");
   }
 
-  const row = { name, base_salary: input.baseSalary, rate_per_gallon: input.ratePerGallon };
+  const bonuses = (input.bonuses ?? []).map((b) => ({ gallons: Number(b.gallons), amount: Number(b.amount) }));
+  if (bonuses.some((b) => !(b.gallons > 0) || !(b.amount > 0))) {
+    throw new Error("Each bonus needs gallons and pesos above 0.");
+  }
+
+  const row = { name, base_salary: input.baseSalary, rate_per_gallon: input.ratePerGallon, bonuses };
   const supabase = await db();
   const { error } = input.id
     ? await supabase.from("drivers").update(row).eq("id", input.id)

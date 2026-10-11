@@ -1,6 +1,6 @@
 import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { manilaToday, shiftDays } from "@/lib/dates";
+import { isClosed, manilaToday, shiftDays } from "@/lib/dates";
 
 /** Push today's due summary to every subscribed phone. */
 export async function notifyDue(supabase: SupabaseClient) {
@@ -11,6 +11,7 @@ export async function notifyDue(supabase: SupabaseClient) {
   );
 
   const today = manilaToday();
+  if (isClosed(today)) return { due: 0, sent: 0 };
   const [{ data: due, error }, { data: drivers }, { data: subscriptions }] = await Promise.all([
     supabase
       .from("customers")

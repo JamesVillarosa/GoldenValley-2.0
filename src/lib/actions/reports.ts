@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { manilaToday } from "@/lib/dates";
 import { db } from "@/lib/supabase/server";
-import type { Expense, Payout } from "@/lib/supabase/types";
+import type { Bonus, Expense, Payout } from "@/lib/supabase/types";
 
 export interface Stats {
   gallons: number;
@@ -31,6 +31,9 @@ export interface DriverSalary {
   name: string;
   base_salary: number;
   rate_per_gallon: number;
+  bonuses: Bonus[];
+  /** Pesos earned from daily gallon targets in the period */
+  bonus: number;
   gallons: number;
   deliveries: number;
   days_worked: number;
@@ -105,7 +108,7 @@ export async function getExpenses(from: string, to: string): Promise<Expense[]> 
   return data ?? [];
 }
 
-export async function addExpense(input: { category: string; amount: number; note?: string; date: string }): Promise<void> {
+export async function addExpense(input: { category: string; amount: number; date: string; monthly: boolean }): Promise<void> {
   if (!input.category.trim()) throw new Error("Pick what the expense was for.");
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error("Amount must be more than 0.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date > manilaToday()) {
@@ -115,8 +118,8 @@ export async function addExpense(input: { category: string; amount: number; note
   const { error } = await supabase.from("expenses").insert({
     category: input.category.trim(),
     amount: input.amount,
-    note: input.note?.trim() || null,
     spent_on: input.date,
+    monthly: input.monthly,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");

@@ -1,10 +1,17 @@
 export type CustomerStatus = "new" | "on_schedule" | "due_soon" | "overdue";
 
+/** Reaching `gallons` in one day adds `amount` pesos to that day's pay. */
+export interface Bonus {
+  gallons: number;
+  amount: number;
+}
+
 export interface Driver {
   id: string;
   name: string;
   base_salary: number;
   rate_per_gallon: number;
+  bonuses: Bonus[];
   active: boolean;
   created_at: string;
 }
@@ -14,10 +21,14 @@ export interface Customer {
   name: string;
   phone: string | null;
   address: string | null;
+  /** Subdivision or place, e.g. Mabuhay */
+  area: string | null;
   driver_id: string;
   containers_out: number;
   /** null = station price */
   price_per_gallon: number | null;
+  /** Gallons in the deal the price was typed as: 3 for "50 pesos for 3" */
+  price_qty: number;
   computed_interval_days: number | null;
   usual_gallons: number | null;
   balance: number;
@@ -54,4 +65,6 @@ export interface Expense {
   category: string;
   amount: number;
   note: string | null;
+  /** A monthly bill: counted in the month and year reports only */
+  monthly: boolean;
 }

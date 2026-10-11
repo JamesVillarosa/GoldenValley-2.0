@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { manilaToday } from "@/lib/dates";
+import { isClosed, manilaToday } from "@/lib/dates";
 import { db } from "@/lib/supabase/server";
 import type { Transaction } from "@/lib/supabase/types";
 
@@ -23,6 +23,7 @@ export async function saveTransaction(input: SaveTransactionInput): Promise<Tran
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date > today) {
     throw new Error("Delivery date cannot be in the future.");
   }
+  if (isClosed(input.date)) throw new Error("The station is closed on Sundays. Pick another day.");
 
   const supabase = await db();
   // Price is copied onto the row so later price changes never rewrite history.
@@ -63,6 +64,14 @@ export async function deleteTransaction(transactionId: string): Promise<void> {
   revalidatePath("/", "layout");
 }
 
+export async function setGallons(transactionId: string, gallons: number): Promise<void> {
+  if (!Number.isFinite(gallons) || gallons <= 0) throw new Error("Gallons must be a positive number.");
+  const supabase = await db();
+  const { error } = await supabase.from("transactions").update({ gallons }).eq("id", transactionId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
 export async function setPaid(transactionId: string, paid: boolean): Promise<void> {
   const supabase = await db();
   const { error } = await supabase.from("transactions").update({ paid }).eq("id", transactionId);
@@ -97,21 +106,24 @@ export async function getCustomerTransactions(customerId: string): Promise<Trans
 
 export interface DriverDelivery extends Transaction {
   customerName: string;
+  driverName: string | null;
 }
 
-/** One driver's deliveries for a day; `null` lists the walk-in sales. */
+/** One driver's deliveries for a day; `null` lists the walk-in sales and
+ * "all" lists everything sold that day. */
 export async function getDriverDeliveries(driverId: string | null, date: string): Promise<DriverDelivery[]> {
   const supabase = await db();
-  const request = supabase.from("transactions").select("*, customers(name)").eq("delivered_on", date);
-  const { data, error } = await (driverId ? request.eq("driver_id", driverId) : request.is("driver_id", null)).order(
-    "created_at",
-    { ascending: false }
-  );
+  let request = supabase.from("transactions").select("*, customers(name), drivers(name)").eq("delivered_on", date);
+  if (driverId !== "all") request = driverId ? request.eq("driver_id", driverId) : request.is("driver_id", null);
+  const { data, error } = await request.order("created_at", { ascending: false }).limit(1000);
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map(({ customers, ...row }) => ({
+  return (data ?? []).map(({ customers, drivers, ...row }) => ({
     ...row,
-    customerName: (customers as unknown as { name: string } | null)?.name ?? "Walk-in",
+    // A sale with a driver but no customer belonged to a customer since deleted.
+    customerName:
+      (customers as unknown as { name: string } | null)?.name ?? (row.driver_id ? "Deleted customer" : "Walk-in"),
+    driverName: (drivers as unknown as { name: string } | null)?.name ?? null,
   }));
 }
