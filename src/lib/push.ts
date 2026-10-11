@@ -18,7 +18,7 @@ export async function notifyDue(supabase: SupabaseClient) {
       .lte("expected_next_date", today)
       .gte("expected_next_date", shiftDays(today, -14))
       .limit(1000),
-    supabase.from("drivers").select("id, name").eq("active", true),
+    supabase.from("drivers").select("id, name").eq("active", true).eq("role", "driver"),
     supabase.from("push_subscriptions").select("*"),
   ]);
   if (error) throw new Error(error.message);

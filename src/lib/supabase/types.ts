@@ -12,6 +12,8 @@ export interface Driver {
   base_salary: number;
   rate_per_gallon: number;
   bonuses: Bonus[];
+  /** A washer is on the salary list only: no customers, no deliveries */
+  role: "driver" | "washer";
   active: boolean;
   created_at: string;
 }

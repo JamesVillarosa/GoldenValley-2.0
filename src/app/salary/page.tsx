@@ -39,26 +39,32 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
       <ul className="flex flex-col gap-4">
         {drivers.map((driver) => {
           const pay = salaryOf(driver);
+          const washer = driver.role === "washer";
           return (
             <li key={driver.id} className="card">
               <div className="flex items-baseline justify-between gap-3 px-4 pt-4">
-                <h2 className="truncate font-display text-lg font-semibold">{driver.name}</h2>
+                <h2 className="truncate font-display text-lg font-semibold">
+                  {driver.name}
+                  {washer && <span className="font-body text-sm font-normal text-ink-muted"> · washer</span>}
+                </h2>
                 <p className="num shrink-0 text-2xl font-semibold text-deep-blue">{peso(pay.total)}</p>
               </div>
               <dl className="flex flex-col gap-1.5 px-4 pt-2 pb-4 text-[0.9375rem]">
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-muted">
-                    Base, {peso(driver.base_salary)} × {driver.days_worked}{" "}
+                    {washer ? "Daily pay" : "Base"}, {peso(driver.base_salary)} × {driver.days_worked}{" "}
                     {driver.days_worked === 1 ? "day" : "days"}
                   </dt>
                   <dd className="num font-medium">{peso(pay.base)}</dd>
                 </div>
+                {(!washer || Number(driver.rate_per_gallon) > 0) && (
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-muted">
                     Commission, {gal(driver.gallons)} × {peso(driver.rate_per_gallon)}
                   </dt>
                   <dd className="num font-medium">{peso(pay.commission)}</dd>
                 </div>
+                )}
                 {driver.bonuses.length > 0 && (
                   <div className="flex justify-between gap-3">
                     <dt className="text-ink-muted">
@@ -94,12 +100,13 @@ export default async function SalaryPage({ searchParams }: PageProps<"/salary">)
                 owed={owedTo(driver.id)}
                 history={history.filter((p) => p.driver_id === driver.id)}
               />
-              <DriverEditor driver={driver} canRemove={drivers.length > 1} />
+              <DriverEditor driver={driver} canRemove={washer || drivers.filter((d) => d.role === "driver").length > 1} />
             </li>
           );
         })}
-        <li className="card">
+        <li className="card divide-y divide-border">
           <DriverEditor />
+          <DriverEditor role="washer" />
         </li>
       </ul>
     </div>

@@ -11,6 +11,7 @@ export async function getDrivers(): Promise<Driver[]> {
     .from("drivers")
     .select("*")
     .eq("active", true)
+    .eq("role", "driver")
     .order("created_at", { ascending: true })
     .order("name", { ascending: true });
 
@@ -24,6 +25,8 @@ export interface DriverInput {
   baseSalary: number;
   ratePerGallon: number;
   bonuses?: Bonus[];
+  /** Only read when adding; a driver never turns into a washer. */
+  role?: "driver" | "washer";
 }
 
 export const saveDriver = safe(async (input: DriverInput): Promise<void> => {
@@ -45,7 +48,7 @@ export const saveDriver = safe(async (input: DriverInput): Promise<void> => {
   const supabase = await db();
   const { error } = input.id
     ? await supabase.from("drivers").update(row).eq("id", input.id)
-    : await supabase.from("drivers").insert(row);
+    : await supabase.from("drivers").insert({ ...row, role: input.role ?? "driver" });
 
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
@@ -54,11 +57,11 @@ export const saveDriver = safe(async (input: DriverInput): Promise<void> => {
 /** Drivers are hidden, never deleted: their past deliveries and customers stay. */
 export const removeDriver = safe(async (driverId: string): Promise<void> => {
   const supabase = await db();
-  const { count } = await supabase
-    .from("drivers")
-    .select("id", { count: "exact", head: true })
-    .eq("active", true);
-  if ((count ?? 0) <= 1) throw new Error("Keep at least one driver.");
+  const [{ data: target }, { count }] = await Promise.all([
+    supabase.from("drivers").select("role").eq("id", driverId).single(),
+    supabase.from("drivers").select("id", { count: "exact", head: true }).eq("active", true).eq("role", "driver"),
+  ]);
+  if (target?.role === "driver" && (count ?? 0) <= 1) throw new Error("Keep at least one driver.");
 
   const { error } = await supabase.from("drivers").update({ active: false }).eq("id", driverId);
   if (error) throw new Error(error.message);

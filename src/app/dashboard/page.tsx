@@ -93,7 +93,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             <Line label="Collected" value={peso(sales - Number(stats.unpaid))} sub />
             <Line label="Not yet paid (utang)" value={peso(stats.unpaid)} sub />
             <Line label="Expenses" value={`- ${peso(stats.expenses)}`} />
-            <Line label="Driver salary" value={`- ${peso(driverPay)}`} />
+            <Line label="Salaries" value={`- ${peso(driverPay)}`} />
             <div className="flex items-baseline justify-between gap-3 border-t border-border bg-mist px-4 py-3">
               <dt className="font-display font-semibold">You keep</dt>
               <dd className={`num text-2xl font-semibold ${profit < 0 ? "text-danger-ink" : "text-success-ink"}`}>
@@ -176,7 +176,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </section>
         )}
 
-        <ExpensePanel drivers={salaries} expenses={expenses} today={lastWorkday(today)} longView={longView} />
+        <ExpensePanel drivers={salaries.filter((s) => s.role === "driver")} expenses={expenses} today={lastWorkday(today)} longView={longView} />
 
         <section aria-labelledby="now-title">
           <h2 id="now-title" className="section-title pb-2">

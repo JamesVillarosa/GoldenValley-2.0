@@ -32,6 +32,7 @@ export interface DriverSalary {
   name: string;
   base_salary: number;
   rate_per_gallon: number;
+  role: "driver" | "washer";
   bonuses: Bonus[];
   /** Pesos for the period, summed by the database from each day worked */
   base_pay: number;

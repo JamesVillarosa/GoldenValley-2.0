@@ -14,11 +14,22 @@ interface EditableDriver {
   base_salary: number;
   rate_per_gallon: number;
   bonuses: { gallons: number; amount: number }[];
+  role: "driver" | "washer";
 }
 
 /** Collapsed form to rename a driver and set their pay. Without a driver it
  * adds a new one. */
-export function DriverEditor({ driver, canRemove = false }: { driver?: EditableDriver; canRemove?: boolean }) {
+export function DriverEditor({
+  driver,
+  role = driver?.role ?? "driver",
+  canRemove = false,
+}: {
+  driver?: EditableDriver;
+  /** What "add" creates when there is no driver to edit. */
+  role?: "driver" | "washer";
+  canRemove?: boolean;
+}) {
+  const washer = role === "washer";
   const details = useRef<HTMLDetailsElement>(null);
   const [name, setName] = useState(driver?.name ?? "");
   const [base, setBase] = useState(String(driver?.base_salary ?? ""));
@@ -28,9 +39,12 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
   );
   const setBonus = (i: number, change: { gallons?: string; amount?: string }) =>
     setBonuses((list) => list.map((b, at) => (at === i ? { ...b, ...change } : b)));
+  // A washer is usually paid a plain daily amount: the per-gallon and bonus
+  // boxes stay hidden behind a plus button until they are wanted.
+  const [more, setMore] = useState(!washer || Number(driver?.rate_per_gallon) > 0 || (driver?.bonuses.length ?? 0) > 0);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const id = driver?.id ?? "new";
+  const id = driver?.id ?? `new-${role}`;
 
   async function run(action: () => Promise<void>, done: string) {
     setBusy(true);
@@ -55,7 +69,7 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
   return (
     <details ref={details} className={driver ? "border-t border-border" : undefined}>
       <summary className="flex min-h-12 cursor-pointer items-center px-4 font-medium text-deep-blue">
-        {driver ? "Edit name, pay and bonus" : "Add a driver"}
+        {driver ? "Edit name, pay and bonus" : washer ? "Add a washer" : "Add a driver"}
       </summary>
       <form
         className="flex flex-col gap-3 px-4 pb-4"
@@ -67,10 +81,11 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
                 id: driver?.id,
                 name,
                 baseSalary: Number(base || 0),
-                ratePerGallon: Number(rate || 0),
-                bonuses: bonuses.map((b) => ({ gallons: Number(b.gallons), amount: Number(b.amount) })),
+                ratePerGallon: more ? Number(rate || 0) : 0,
+                bonuses: more ? bonuses.map((b) => ({ gallons: Number(b.gallons), amount: Number(b.amount) })) : [],
+                role,
               }),
-            driver ? "Driver saved" : "Driver added"
+            driver ? "Saved" : washer ? "Washer added" : "Driver added"
           );
         }}
       >
@@ -83,7 +98,7 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
         <div className="flex gap-3">
           <div className="flex-1">
             <label htmlFor={`base-${id}`} className="field-label">
-              Base salary per day (₱)
+              {washer ? "Pay per day (₱)" : "Base salary per day (₱)"}
             </label>
             <Input
               id={`base-${id}`}
@@ -95,9 +110,10 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
               onChange={(e) => setBase(e.target.value)}
             />
           </div>
+          {more && (
           <div className="flex-1">
             <label htmlFor={`rate-${id}`} className="field-label">
-              Commission per gallon (₱)
+              {washer ? "Per gallon the station sells (₱)" : "Commission per gallon (₱)"}
             </label>
             <Input
               id={`rate-${id}`}
@@ -109,7 +125,14 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
               onChange={(e) => setRate(e.target.value)}
             />
           </div>
+          )}
         </div>
+        {!more && (
+          <Button variant="ghost" onClick={() => setMore(true)} className="self-start px-0 text-deep-blue">
+            + Add pay per gallon or a bonus
+          </Button>
+        )}
+        {more && (
         <fieldset className="flex flex-col gap-2">
           <legend className="field-label">Bonus for a big day</legend>
           {bonuses.map((b, i) => (
@@ -159,6 +182,7 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
             + Add a bonus
           </Button>
         </fieldset>
+        )}
         <div className="flex gap-3">
           {driver && canRemove && (
             <Button variant="ghost" onClick={() => setConfirming(true)} disabled={busy} className="text-danger-ink">
@@ -175,11 +199,15 @@ export function DriverEditor({ driver, canRemove = false }: { driver?: EditableD
         <ConfirmDialog
           open={confirming}
           title={`Remove ${driver.name}?`}
-          description="They leave the driver list but their past deliveries are kept. Move their customers to another driver from the Customers tab."
+          description={
+            washer
+              ? "They leave the salary list. Pay anything still owed first."
+              : "They leave the driver list but their past deliveries are kept. Move their customers to another driver from the Customers tab."
+          }
           danger
         confirmLabel="Remove"
           loading={busy}
-          onConfirm={() => run(() => removeDriver(driver.id), "Driver removed")}
+          onConfirm={() => run(() => removeDriver(driver.id), "Removed")}
           onCancel={() => setConfirming(false)}
         />
       )}
