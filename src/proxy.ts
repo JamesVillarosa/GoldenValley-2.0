@@ -13,5 +13,5 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Everything except static assets (the PWA shell files stay public) and the
   // cron route, which checks its own secret.
-  matcher: ["/((?!api/cron/|_next/static|_next/image|icons/|manifest.json|sw.js|icon.png|apple-icon.png|favicon.ico).*)"],
+  matcher: ["/((?!api/cron/|_next/static|_next/image|icons/|manifest.json|sw.js|logo.png|icon.png|apple-icon.png|favicon.ico).*)"],
 };

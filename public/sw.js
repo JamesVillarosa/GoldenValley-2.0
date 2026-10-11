@@ -1,4 +1,4 @@
-const CACHE_NAME = "golden-valley-shell-v2";
+const CACHE_NAME = "golden-valley-shell-v3";
 // Pages sit behind the PIN, so only public files are precached; visited pages
 // are cached as they load (network first).
 const APP_SHELL = ["/manifest.json", "/icons/icon-192.png"];

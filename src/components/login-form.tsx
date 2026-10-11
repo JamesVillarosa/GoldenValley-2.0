@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Drop } from "@phosphor-icons/react/dist/ssr";
+import Image from "next/image";
 import { unlock } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +26,7 @@ export function LoginForm({ firstRun }: { firstRun: boolean }) {
 
   return (
     <form onSubmit={submit} className="mx-auto flex w-full max-w-xs flex-1 flex-col justify-center px-4 pb-16">
-      <span className="grid h-14 w-14 place-items-center rounded-lg bg-deep-blue text-white">
-        <Drop size={30} weight="fill" />
-      </span>
+      <Image src="/logo.png" alt="" width={602} height={176} priority unoptimized className="h-auto w-40" />
       <h1 className="mt-5 font-display text-[1.75rem] leading-tight font-semibold tracking-[-0.02em]">
         Golden Valley
       </h1>
