@@ -107,8 +107,14 @@ export function CustomerSearch({
       />
       <Input
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
+        // Focus alone is not enough: after the pop-up is cancelled the box is
+        // still focused, so a tap or more typing must bring the list back.
+        onClick={() => setOpen(true)}
         placeholder="Search customer"
         aria-label="Search customer"
         className="pl-11"
@@ -131,7 +137,9 @@ export function CustomerSearch({
             </button>
           ))}
 
-          {!isPending && name && !exactMatch && (
+          {/* Shown even while a search is still running, so a slow signal never
+              hides it. A name that already exists is refused by the server. */}
+          {name && !exactMatch && (
             <button
               type="button"
               onClick={() => {
@@ -164,7 +172,10 @@ export function CustomerSearch({
         loading={isPending}
         confirmDisabled={!(Number(pricing.price) >= 0) || !pricing.price.trim()}
         onConfirm={handleCreate}
-        onCancel={() => setAdding(null)}
+        onCancel={() => {
+          setAdding(null);
+          setOpen(true);
+        }}
       >
         <div className="mt-4">
           <PriceFields value={pricing} onChange={setPricing} />
