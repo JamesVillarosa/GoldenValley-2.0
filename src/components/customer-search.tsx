@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
 import { searchCustomers, saveCustomer } from "@/lib/actions/customers";
+import { peso } from "@/lib/format";
 import type { Customer } from "@/lib/supabase/types";
 import { DropletStatus } from "@/components/droplet-status";
 import { Input } from "@/components/ui/input";
@@ -28,14 +29,14 @@ export function CustomerSearch({
     const handle = setTimeout(() => {
       startTransition(async () => {
         try {
-          setResults(await searchCustomers(driverId, query));
+          setResults(await searchCustomers(query));
         } catch {
           setResults([]);
         }
       });
     }, 150);
     return () => clearTimeout(handle);
-  }, [query, driverId, open]);
+  }, [query, open]);
 
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
@@ -67,7 +68,13 @@ export function CustomerSearch({
         <DropletStatus status={selected.status} size={20} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-[1.0625rem] font-medium">{selected.name}</p>
-          {selected.address && <p className="truncate text-sm text-ink-muted">{selected.address}</p>}
+          {selected.balance > 0 ? (
+            <p className="num truncate text-sm font-medium text-danger-ink">Still owes {peso(selected.balance)}</p>
+          ) : (
+            (selected.area || selected.address) && (
+              <p className="truncate text-sm text-ink-muted">{selected.area || selected.address}</p>
+            )
+          )}
         </div>
         <button
           type="button"
@@ -129,7 +136,7 @@ export function CustomerSearch({
 
           {!isPending && results.length === 0 && !name && (
             <p className="px-4 py-3 text-sm text-ink-muted">
-              No customers for this driver yet. Type a name to add one.
+              No customers yet. Type a name to add one.
             </p>
           )}
         </div>

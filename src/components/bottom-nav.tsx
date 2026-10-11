@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, ChartBar, Drop, UsersThree, Wallet } from "@phosphor-icons/react/dist/ssr";
+import { CalendarCheck, ChartBar, ClockCounterClockwise, Drop, UsersThree, Wallet } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/", label: "Deliver", icon: Drop },
   { href: "/due", label: "Due", icon: CalendarCheck },
-  { href: "/dashboard", label: "Dashboard", icon: ChartBar },
+  { href: "/history", label: "History", icon: ClockCounterClockwise },
   { href: "/salary", label: "Salary", icon: Wallet },
+  { href: "/dashboard", label: "Dashboard", icon: ChartBar },
   { href: "/customers", label: "Customers", icon: UsersThree },
 ] as const;
 
@@ -28,12 +29,14 @@ export function BottomNav() {
           <Link
             key={href}
             href={href}
+            // Load every tab ahead of the tap so switching never waits.
+            prefetch
             aria-current={active ? "page" : undefined}
-            className="flex h-16 flex-1 flex-col items-center justify-center gap-1"
+            className="flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1"
           >
             <span
               className={cn(
-                "grid h-7 w-14 place-items-center rounded-pill transition-colors duration-200",
+                "grid h-7 w-12 place-items-center rounded-pill transition-colors duration-200",
                 active ? "bg-tint text-deep-blue" : "text-ink-muted"
               )}
             >
@@ -41,7 +44,7 @@ export function BottomNav() {
             </span>
             <span
               className={cn(
-                "text-[0.6875rem] font-medium",
+                "text-[0.625rem] font-medium tracking-tight min-[400px]:text-[0.6875rem]",
                 active ? "text-deep-blue" : "text-ink-muted"
               )}
             >

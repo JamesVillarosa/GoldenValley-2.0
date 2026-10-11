@@ -4,7 +4,7 @@ import { GearSix } from "@phosphor-icons/react/dist/ssr";
 import { getCustomer } from "@/lib/actions/customers";
 import { getDrivers } from "@/lib/actions/drivers";
 import { getPrice } from "@/lib/actions/reports";
-import { manilaToday } from "@/lib/dates";
+import { lastWorkday, manilaToday } from "@/lib/dates";
 import { DeliverForm } from "@/components/deliver-form";
 import { PageHeader } from "@/components/page-header";
 
@@ -15,13 +15,14 @@ export default async function DeliverPage({ searchParams }: PageProps<"/">) {
     getPrice(),
     typeof customerId === "string" ? getCustomer(customerId) : null,
   ]);
-  const today = manilaToday();
+  const now = manilaToday();
+  const today = lastWorkday(now);
 
   return (
     <div className="page flex flex-1 flex-col">
       <PageHeader
         title="Deliver"
-        sub={format(parseISO(today), "EEEE, MMMM d")}
+        sub={now === today ? format(parseISO(today), "EEEE, MMMM d") : "Closed on Sundays. Logging for Saturday."}
         action={
           <Link
             href="/settings"

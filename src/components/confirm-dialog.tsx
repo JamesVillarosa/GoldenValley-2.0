@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
 /** Native <dialog>: focus trap, Escape and backdrop come from the platform. */
@@ -10,6 +10,8 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   loading = false,
+  danger = false,
+  children,
   onConfirm,
   onCancel,
 }: {
@@ -18,6 +20,9 @@ export function ConfirmDialog({
   description: string;
   confirmLabel?: string;
   loading?: boolean;
+  /** Red confirm button, for actions that delete something. */
+  danger?: boolean;
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -37,11 +42,12 @@ export function ConfirmDialog({
     >
       <h2 className="font-display text-lg font-semibold">{title}</h2>
       <p className="mt-1.5 text-[0.9375rem] text-ink-muted">{description}</p>
+      {children}
       <div className="mt-5 flex gap-3">
-        <Button variant="secondary" onClick={onCancel} className="flex-1">
+        <Button variant="secondary" onClick={onCancel} className="flex-1 px-3">
           Cancel
         </Button>
-        <Button variant="danger" onClick={onConfirm} disabled={loading} className="flex-1">
+        <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={loading} className="h-12 flex-1 px-3">
           {loading ? "Working..." : confirmLabel}
         </Button>
       </div>

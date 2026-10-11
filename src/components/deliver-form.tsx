@@ -4,21 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { Drop, Trash } from "@phosphor-icons/react/dist/ssr";
+import { Drop } from "@phosphor-icons/react/dist/ssr";
 import { Segmented } from "@/components/segmented";
 import { CustomerSearch } from "@/components/customer-search";
 import { GallonStepper } from "@/components/gallon-stepper";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { DayTotal, DeliveryList } from "@/components/delivery-list";
 import { Button } from "@/components/ui/button";
-import {
-  saveTransaction,
-  deleteTransaction,
-  setPaid,
-  getDriverDeliveries,
-  type DriverDelivery,
-} from "@/lib/actions/transactions";
+import { saveTransaction, getDriverDeliveries, type DriverDelivery } from "@/lib/actions/transactions";
+import { isClosed, manilaToday } from "@/lib/dates";
 import { gal, peso } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import type { Driver, Customer } from "@/lib/supabase/types";
 
 const DEFAULT_GALLONS = 5;
@@ -41,7 +36,7 @@ export function DeliverForm({
   const [date, setDate] = useState(today);
   const [saving, setSaving] = useState(false);
   const [deliveries, setDeliveries] = useState<DriverDelivery[] | null>(null);
-  const [toDelete, setToDelete] = useState<DriverDelivery | null>(null);
+  const [reminding, setReminding] = useState(false);
 
   const walkIn = driverId === WALK_IN;
   const price = customer?.price_per_gallon ?? stationPrice;
@@ -66,26 +61,20 @@ export function DeliverForm({
     return () => document.removeEventListener("visibilitychange", refresh);
   }, [router]);
 
-  // Payment is recorded after the driver comes back, not while listing.
-  async function togglePaid(tx: DriverDelivery) {
-    const flip = (paid: boolean) =>
-      setDeliveries((prev) => prev?.map((d) => (d.id === tx.id ? { ...d, paid } : d)) ?? null);
-    flip(!tx.paid);
-    try {
-      await setPaid(tx.id, !tx.paid);
-    } catch (error) {
-      flip(tx.paid);
-      toast.error(error instanceof Error ? error.message : "Could not save.");
-    }
-  }
-
   function pickCustomer(next: Customer | null) {
     setCustomer(next);
     setGallons(next?.usual_gallons ?? DEFAULT_GALLONS);
   }
 
-  async function handleSave() {
+  // A customer who still owes money gets a reminder before the new sale is added.
+  function handleSave() {
     if (!walkIn && !customer) return;
+    if (customer && customer.balance > 0) setReminding(true);
+    else save();
+  }
+
+  async function save() {
+    setReminding(false);
     setSaving(true);
     const name = customer?.name ?? "walk-in";
     try {
@@ -95,7 +84,7 @@ export function DeliverForm({
         gallons,
         date,
       });
-      setDeliveries((prev) => [{ ...tx, customerName: customer?.name ?? "Walk-in" }, ...(prev ?? [])]);
+      setDeliveries((prev) => [{ ...tx, customerName: customer?.name ?? "Walk-in", driverName: null }, ...(prev ?? [])]);
       toast.success(`${gal(gallons)} saved for ${name}`);
       pickCustomer(null);
     } catch (error) {
@@ -105,28 +94,32 @@ export function DeliverForm({
     }
   }
 
-  async function handleDelete() {
-    if (!toDelete) return;
-    const tx = toDelete;
-    setToDelete(null);
-    const previous = deliveries;
-    setDeliveries((prev) => prev?.filter((d) => d.id !== tx.id) ?? null);
-    try {
-      await deleteTransaction(tx.id);
-      toast("Removed");
-    } catch (error) {
-      setDeliveries(previous);
-      toast.error(error instanceof Error ? error.message : "Could not remove.");
-    }
-  }
-
-  const total = deliveries?.reduce((sum, d) => sum + Number(d.gallons), 0) ?? 0;
-  const owed = deliveries?.reduce((sum, d) => sum + (d.paid ? 0 : d.gallons * d.unit_price), 0) ?? 0;
-  const dayLabel = backdated ? format(parseISO(date), "EEE, MMM d") : "Today";
+  // On a Sunday the form logs for Saturday, which is not "today".
+  const dayLabel = date === manilaToday() ? "Today" : format(parseISO(date), "EEE, MMM d");
 
   return (
     <div className="flex flex-1 flex-col gap-6 pb-24">
       <div className="flex flex-col gap-3">
+        <label
+          className={`flex min-h-12 items-center justify-between gap-3 rounded-md border px-4 text-[0.9375rem] ${
+            backdated ? "border-warning bg-warning/10 font-medium text-warning-ink" : "border-border text-ink-muted"
+          }`}
+        >
+          {backdated ? "Logging a past day" : "Delivery date"}
+          <input
+            type="date"
+            value={date}
+            max={today}
+            onChange={(e) => {
+              const next = e.target.value || today;
+              if (isClosed(next)) return void toast.error("The station is closed on Sundays.");
+              setDate(next);
+              setDeliveries(null);
+            }}
+            className="num h-11 bg-transparent text-right font-medium text-ink outline-none"
+          />
+        </label>
+
         <Segmented
           label="Driver"
           options={[...drivers.map((d) => ({ value: d.id, label: d.name })), { value: WALK_IN, label: "Walk-in" }]}
@@ -150,37 +143,14 @@ export function DeliverForm({
           <span className="text-[0.9375rem] font-medium text-ink-muted">Gallons</span>
           <GallonStepper value={gallons} onChange={setGallons} />
         </div>
-
-        <label
-          className={`flex min-h-12 items-center justify-between gap-3 rounded-md border px-4 text-[0.9375rem] ${
-            backdated ? "border-warning bg-warning/10 font-medium text-warning-ink" : "border-border text-ink-muted"
-          }`}
-        >
-          {backdated ? "Logging a past day" : "Delivery date"}
-          <input
-            type="date"
-            value={date}
-            max={today}
-            onChange={(e) => {
-              setDate(e.target.value || today);
-              setDeliveries(null);
-            }}
-            className="num h-11 bg-transparent text-right font-medium text-ink outline-none"
-          />
-        </label>
       </div>
 
       <section aria-labelledby="day-title">
-        <div className="flex items-baseline justify-between pb-2">
+        <div className="flex items-end justify-between pb-2">
           <h2 id="day-title" className="section-title">
             {dayLabel}
           </h2>
-          {deliveries && deliveries.length > 0 && (
-            <p className="num text-[0.9375rem] font-medium text-ink-muted">
-              {gal(total)} · {deliveries.length} {deliveries.length === 1 ? "sale" : "sales"}
-              {owed > 0 && <span className="text-danger-ink"> · {peso(owed)} unpaid</span>}
-            </p>
-          )}
+          {deliveries && deliveries.length > 0 && <DayTotal rows={deliveries} />}
         </div>
 
         {deliveries === null ? (
@@ -195,42 +165,7 @@ export function DeliverForm({
             </p>
           </div>
         ) : (
-          <ul className="card divide-y divide-border">
-            {deliveries.map((tx) => (
-              <li key={tx.id} className="row-in flex items-center gap-3 py-2 pr-1.5 pl-4">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{tx.customerName}</p>
-                  <p className="num text-sm text-ink-muted">
-                    <span className="font-semibold text-ink">{gal(tx.gallons)}</span>
-                    {tx.unit_price > 0 && ` · ${peso(tx.gallons * tx.unit_price)}`}
-                    {!backdated && ` · ${format(new Date(tx.created_at), "h:mm a")}`}
-                  </p>
-                </div>
-                {tx.unit_price > 0 && (
-                  <button
-                    type="button"
-                    aria-pressed={tx.paid}
-                    aria-label={`${tx.customerName}: ${tx.paid ? "paid" : "unpaid"}. Tap to change`}
-                    onClick={() => togglePaid(tx)}
-                    className={cn(
-                      "press h-10 w-[4.75rem] shrink-0 rounded-pill border text-sm font-semibold",
-                      tx.paid ? "border-success-ink/30 bg-success/10 text-success-ink" : "border-danger-ink/30 bg-danger/10 text-danger-ink"
-                    )}
-                  >
-                    {tx.paid ? "Paid" : "Unpaid"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  aria-label={`Remove ${tx.customerName}`}
-                  onClick={() => setToDelete(tx)}
-                  className="press grid h-11 w-11 shrink-0 place-items-center rounded-pill text-ink-muted"
-                >
-                  <Trash size={18} />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <DeliveryList rows={deliveries} setRows={setDeliveries} />
         )}
       </section>
 
@@ -247,12 +182,12 @@ export function DeliverForm({
       </div>
 
       <ConfirmDialog
-        open={!!toDelete}
-        title="Remove this sale?"
-        description={toDelete ? `${gal(toDelete.gallons)} for ${toDelete.customerName} will be deleted from the log.` : ""}
-        confirmLabel="Remove"
-        onConfirm={handleDelete}
-        onCancel={() => setToDelete(null)}
+        open={reminding}
+        title={`${customer?.name} still owes ${peso(customer?.balance ?? 0)}`}
+        description="Remind them about the unpaid balance. This delivery will be added on top of it."
+        confirmLabel="Save delivery"
+        onConfirm={save}
+        onCancel={() => setReminding(false)}
       />
     </div>
   );
