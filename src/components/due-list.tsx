@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { CheckCircle, Phone } from "@phosphor-icons/react/dist/ssr";
+import { CallButton } from "@/components/call-button";
 import { DropletStatus } from "@/components/droplet-status";
 import { PageHeader } from "@/components/page-header";
 import { Segmented } from "@/components/segmented";
+import { stepWorkday } from "@/lib/dates";
 import { gal } from "@/lib/format";
 import type { Customer, Driver } from "@/lib/supabase/types";
 
@@ -23,7 +25,7 @@ function Row({ customer, today }: { customer: Customer; today: string }) {
           <p className="truncate font-medium">{customer.name}</p>
           <p className="truncate text-sm text-ink-muted">
             {late > 0 && <span className="font-medium text-danger-ink">{late}d late · </span>}
-            {customer.address || `every ${customer.computed_interval_days} days`}
+            {customer.area || customer.address || `every ${customer.computed_interval_days} days`}
           </p>
         </div>
         {customer.usual_gallons != null && (
@@ -31,13 +33,13 @@ function Row({ customer, today }: { customer: Customer; today: string }) {
         )}
       </Link>
       {customer.phone && (
-        <a
-          href={`tel:${customer.phone}`}
-          aria-label={`Call ${customer.name}`}
+        <CallButton
+          name={customer.name}
+          phone={customer.phone}
           className="press grid h-11 w-11 shrink-0 place-items-center rounded-pill text-deep-blue"
         >
           <Phone size={20} />
-        </a>
+        </CallButton>
       )}
     </li>
   );
@@ -49,9 +51,7 @@ function Group({ title, rows, today }: { title: string; rows: Customer[]; today:
     <section>
       <div className="flex items-baseline justify-between pb-2">
         <h2 className="section-title">{title}</h2>
-        <p className="num text-[0.9375rem] font-medium text-ink-muted">
-          {rows.length} · about {gal(sumGallons(rows))}
-        </p>
+        <p className="num text-[1.0625rem] font-semibold text-deep-blue">about {gal(sumGallons(rows))}</p>
       </div>
       <ul className="card divide-y divide-border overflow-hidden">
         {rows.map((c) => (
@@ -82,6 +82,8 @@ export function DueList({
   const tomorrow = rows.filter((c) => c.expected_next_date! > today);
   const toLoad = [...overdue, ...todays];
   const old = mine(lapsed);
+  const next = stepWorkday(today, 1);
+  const nextDay = format(addDays(parseISO(today), 1), "yyyy-MM-dd");
 
   return (
     <div className="page flex flex-col gap-6">
@@ -89,9 +91,7 @@ export function DueList({
         <PageHeader
           title="Due"
           sub={
-            toLoad.length
-              ? `${toLoad.length} ${toLoad.length === 1 ? "customer" : "customers"} expected, about ${gal(sumGallons(toLoad))} to load`
-              : "Nobody is expected to order today"
+            toLoad.length ? `About ${gal(sumGallons(toLoad))} to load today` : "Nobody is expected to order today"
           }
         />
         <Segmented
@@ -113,20 +113,9 @@ export function DueList({
 
       <Group title="Overdue" rows={overdue} today={today} />
       <Group title="Today" rows={todays} today={today} />
-      <Group title="Tomorrow" rows={tomorrow} today={today} />
-
-      {old.length > 0 && (
-        <details>
-          <summary className="flex min-h-11 cursor-pointer items-center font-medium text-deep-blue">
-            {old.length} not ordered in over 2 weeks
-          </summary>
-          <ul className="card mt-2 divide-y divide-border overflow-hidden">
-            {old.map((c) => (
-              <Row key={c.id} customer={c} today={today} />
-            ))}
-          </ul>
-        </details>
-      )}
+      {/* Closed on Sundays, so Saturday's "tomorrow" is Monday. */}
+      <Group title={next === nextDay ? "Tomorrow" : format(parseISO(next), "EEEE")} rows={tomorrow} today={today} />
+      <Group title="Not ordered in over 2 weeks" rows={old} today={today} />
     </div>
   );
 }

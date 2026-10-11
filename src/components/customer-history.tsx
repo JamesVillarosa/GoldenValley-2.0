@@ -26,6 +26,7 @@ export function CustomerHistory({
 }) {
   const [pending, startTransition] = useTransition();
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
+  const [toFlip, setToFlip] = useState<Transaction | null>(null);
 
   function run(action: () => Promise<void>, done: string) {
     startTransition(async () => {
@@ -62,7 +63,7 @@ export function CustomerHistory({
         </h2>
         {transactions.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-6 py-8 text-center text-[0.9375rem] text-ink-muted">
-            No deliveries yet. Tap Deliver to log the first one.
+            No deliveries yet. Log the first one on the Deliver tab.
           </p>
         ) : (
           <ul className={cn("card divide-y divide-border", pending && "opacity-60")}>
@@ -82,7 +83,7 @@ export function CustomerHistory({
                     type="button"
                     disabled={pending}
                     aria-pressed={tx.paid}
-                    onClick={() => run(() => setPaid(tx.id, !tx.paid), tx.paid ? "Marked unpaid" : "Marked paid")}
+                    onClick={() => setToFlip(tx)}
                     className={cn(
                       "press h-9 shrink-0 rounded-pill border px-3 text-sm font-medium",
                       tx.paid ? "border-border text-success-ink" : "border-danger-ink/30 bg-danger/10 text-danger-ink"
@@ -106,6 +107,23 @@ export function CustomerHistory({
       </section>
 
       <ConfirmDialog
+        open={!!toFlip}
+        title={toFlip?.paid ? "Mark as unpaid?" : "Mark as paid?"}
+        description={
+          toFlip
+            ? `${gal(toFlip.gallons)} on ${format(new Date(toFlip.created_at), "MMM d")}, ${peso(toFlip.gallons * toFlip.unit_price)}.`
+            : ""
+        }
+        confirmLabel={toFlip?.paid ? "Yes, unpaid" : "Yes, paid"}
+        onConfirm={() => {
+          const tx = toFlip!;
+          setToFlip(null);
+          run(() => setPaid(tx.id, !tx.paid), tx.paid ? "Marked unpaid" : "Marked paid");
+        }}
+        onCancel={() => setToFlip(null)}
+      />
+
+      <ConfirmDialog
         open={!!toDelete}
         title="Delete this delivery?"
         description={
@@ -113,6 +131,7 @@ export function CustomerHistory({
             ? `${gal(toDelete.gallons)} on ${format(new Date(toDelete.created_at), "MMM d")} will be removed from history, salary and the dashboard.`
             : ""
         }
+        danger
         confirmLabel="Delete"
         onConfirm={() => {
           const tx = toDelete!;
