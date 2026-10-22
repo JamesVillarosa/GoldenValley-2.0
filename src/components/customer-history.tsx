@@ -83,7 +83,8 @@ export function CustomerHistory({
                     type="button"
                     disabled={pending}
                     aria-pressed={tx.paid}
-                    onClick={() => setToFlip(tx)}
+                    // Paying is one tap; making it unpaid again asks first.
+                    onClick={() => (tx.paid ? setToFlip(tx) : run(() => setPaid(tx.id, true), "Marked paid"))}
                     className={cn(
                       "press h-10 w-[4.75rem] shrink-0 rounded-pill border text-sm font-semibold",
                       tx.paid ? "border-success-ink/30 bg-success/10 text-success-ink" : "border-danger-ink/30 bg-danger/10 text-danger-ink"
@@ -108,17 +109,18 @@ export function CustomerHistory({
 
       <ConfirmDialog
         open={!!toFlip}
-        title={toFlip?.paid ? "Mark as unpaid?" : "Mark as paid?"}
+        title="Mark as unpaid?"
         description={
           toFlip
             ? `${gal(toFlip.gallons)} on ${format(new Date(toFlip.created_at), "MMM d")}, ${peso(toFlip.gallons * toFlip.unit_price)}.`
             : ""
         }
-        confirmLabel={toFlip?.paid ? "Yes, unpaid" : "Yes, paid"}
+        confirmLabel="Yes, unpaid"
+        danger
         onConfirm={() => {
           const tx = toFlip!;
           setToFlip(null);
-          run(() => setPaid(tx.id, !tx.paid), tx.paid ? "Marked unpaid" : "Marked paid");
+          run(() => setPaid(tx.id, false), "Marked unpaid");
         }}
         onCancel={() => setToFlip(null)}
       />

@@ -50,6 +50,8 @@ export interface Transaction {
   gallons: number;
   unit_price: number;
   paid: boolean;
+  /** Paid straight to the manager: the cash never reaches the driver's remit */
+  paid_to_manager: boolean;
   delivered_on: string;
   created_at: string;
 }

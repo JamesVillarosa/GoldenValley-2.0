@@ -106,9 +106,12 @@ export const setGallons = safe(async (transactionId: string, gallons: number): P
   revalidatePath("/", "layout");
 });
 
-export const setPaid = safe(async (transactionId: string, paid: boolean): Promise<void> => {
+export const setPaid = safe(async (transactionId: string, paid: boolean, toManager = false): Promise<void> => {
   const supabase = await db();
-  const { error } = await supabase.from("transactions").update({ paid }).eq("id", transactionId);
+  const { error } = await supabase
+    .from("transactions")
+    .update({ paid, paid_to_manager: paid && toManager })
+    .eq("id", transactionId);
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
 });

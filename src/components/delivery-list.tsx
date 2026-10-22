@@ -4,6 +4,7 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { PencilSimple, Trash } from "@phosphor-icons/react/dist/ssr";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/segmented";
 import { GallonStepper } from "@/components/gallon-stepper";
 import { type DriverDelivery } from "@/lib/actions/transactions";
@@ -15,7 +16,8 @@ type Rows = DriverDelivery[] | null;
 type Ask = { kind: "paid" | "gallons" | "delete"; tx: DriverDelivery };
 
 /** A day's sales. Each row can have its gallons corrected, be marked paid or
- * unpaid, or be removed; every change asks first and shows at once. */
+ * unpaid, or be removed. Marking paid is one tap; anything that takes money
+ * off the books (unpaid, remove) asks first. */
 export function DeliveryList({
   rows,
   setRows,
@@ -53,7 +55,7 @@ export function DeliveryList({
       list.map((row) => (row.id === tx.id ? { ...row, ...change } : row));
 
     if (kind === "paid") {
-      apply(patch({ paid: !tx.paid }), () => setPaid(tx.id, !tx.paid), tx.paid ? "Marked unpaid" : "Marked paid");
+      apply(patch({ paid: false, paid_to_manager: false }), () => setPaid(tx.id, false), "Marked unpaid");
     } else if (kind === "gallons") {
       apply(patch({ gallons }), () => setGallons(tx.id, gallons), `Changed to ${gal(gallons)}`);
     } else {
@@ -61,13 +63,22 @@ export function DeliveryList({
     }
   }
 
+  // One tap, no question: easy to undo, and it happens many times a day.
+  function markPaid(row: DriverDelivery, toManager: boolean) {
+    const change = (list: DriverDelivery[]) =>
+      list.map((r) => (r.id === row.id ? { ...r, paid: true, paid_to_manager: toManager } : r));
+    apply(change, () => setPaid(row.id, true, toManager), toManager ? "Paid to the manager" : "Marked paid");
+  }
+
   const amount = tx ? peso(tx.gallons * tx.unit_price) : "";
   const dialog = !ask || !tx
     ? { title: "", description: "", confirmLabel: "" }
     : ask.kind === "paid"
-      ? tx.paid
-        ? { title: "Mark as unpaid?", description: `${tx.customerName} will owe ${amount} again.`, confirmLabel: "Yes, unpaid" }
-        : { title: "Mark as paid?", description: `${tx.customerName} paid ${amount}.`, confirmLabel: "Yes, paid" }
+      ? {
+          title: tx.paid_to_manager ? "Paid to the manager" : "Paid to the driver",
+          description: `${tx.customerName}, ${amount}. Mark as unpaid, or change who received the money.`,
+          confirmLabel: "Mark unpaid",
+        }
       : ask.kind === "gallons"
         ? { title: "Change gallons", description: tx.customerName, confirmLabel: "Save" }
         : { title: "Remove this sale?", description: `${gal(tx.gallons)} for ${tx.customerName} will be deleted from the log.`, confirmLabel: "Remove" };
@@ -115,14 +126,14 @@ export function DeliveryList({
               <button
                 type="button"
                 aria-pressed={row.paid}
-                aria-label={`${row.customerName}: ${row.paid ? "paid" : "unpaid"}. Tap to change`}
-                onClick={() => setAsk({ kind: "paid", tx: row })}
+                aria-label={`${row.customerName}: ${row.paid_to_manager ? "paid to the manager" : row.paid ? "paid" : "unpaid"}. Tap to change`}
+                onClick={() => (row.paid ? setAsk({ kind: "paid", tx: row }) : markPaid(row, false))}
                 className={cn(
                   "press h-10 w-[4.75rem] shrink-0 rounded-pill border text-sm font-semibold",
                   row.paid ? "border-success-ink/30 bg-success/10 text-success-ink" : "border-danger-ink/30 bg-danger/10 text-danger-ink"
                 )}
               >
-                {row.paid ? "Paid" : "Unpaid"}
+                {row.paid_to_manager ? "Manager" : row.paid ? "Paid" : "Unpaid"}
               </button>
             )}
             <button
@@ -140,10 +151,15 @@ export function DeliveryList({
       <ConfirmDialog
         open={!!ask}
         {...dialog}
-        danger={ask?.kind === "delete"}
+        danger={ask?.kind === "delete" || ask?.kind === "paid"}
         onConfirm={confirm}
         onCancel={() => setAsk(null)}
       >
+        {ask?.kind === "paid" && tx && (
+          <Button variant="secondary" onClick={() => markPaid(tx, !tx.paid_to_manager)} className="mt-4 w-full">
+            {tx.paid_to_manager ? "Paid to the driver instead" : "Paid to the manager instead"}
+          </Button>
+        )}
         {ask?.kind === "gallons" && (
           <div className="mt-4 flex justify-center">
             <GallonStepper value={gallons} onChange={setGallonsDraft} />

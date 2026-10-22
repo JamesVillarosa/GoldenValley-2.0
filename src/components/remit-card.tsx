@@ -32,7 +32,10 @@ export function RemitCard({
   onChanged: () => void;
 }) {
   const [removing, setRemoving] = useState<Deduction | null>(null);
-  const collected = deliveries.reduce((sum, d) => sum + (d.paid ? d.gallons * d.unit_price : 0), 0);
+  const amountOf = (d: DriverDelivery) => d.gallons * d.unit_price;
+  // Money a customer handed to the manager never passed through the driver.
+  const collected = deliveries.reduce((sum, d) => sum + (d.paid && !d.paid_to_manager ? amountOf(d) : 0), 0);
+  const toManager = deliveries.reduce((sum, d) => sum + (d.paid_to_manager ? amountOf(d) : 0), 0);
   const unpaid = deliveries.reduce((sum, d) => sum + (d.paid ? 0 : d.gallons * d.unit_price), 0);
   const spent = deductions.reduce((sum, d) => sum + d.amount, 0);
   const remit = collected - spent;
@@ -78,6 +81,11 @@ export function RemitCard({
             </button>
           </div>
         ))}
+        {toManager > 0 && (
+          <p className="py-1 text-sm text-ink-muted">
+            {peso(Math.round(toManager * 100) / 100)} paid to the manager is not part of the remit.
+          </p>
+        )}
         {unpaid > 0 && (
           <p className="py-1 text-sm text-ink-muted">
             {peso(Math.round(unpaid * 100) / 100)} still unpaid is not counted until it is marked paid.
