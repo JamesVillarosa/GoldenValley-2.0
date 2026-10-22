@@ -35,13 +35,31 @@ export function DeliveryList({
   const tx = ask?.tx;
 
   // Show the change first, put the old rows back if the server refuses it.
-  async function apply(next: (rows: DriverDelivery[]) => DriverDelivery[], save: () => Promise<void>, done: string) {
+  async function apply(
+    next: (rows: DriverDelivery[]) => DriverDelivery[],
+    save: () => Promise<void>,
+    done: string | { text: string; action: { label: string; onClick: () => void } }
+  ) {
     setAsk(null);
     const before = rows;
     setRows(next(rows));
     try {
       await save();
-      toast(done);
+      if (typeof done === "string") toast(done);
+      else
+        toast(done.text, {
+          action: done.action,
+          duration: 6000,
+          actionButtonStyle: {
+            background: "#fff",
+            color: "var(--color-deep-blue)",
+            borderRadius: 999,
+            height: 36,
+            padding: "0 16px",
+            fontSize: 14,
+            fontWeight: 600,
+          },
+        });
     } catch (error) {
       setRows(before);
       toast.error(error instanceof Error ? error.message : "Could not save. Check your signal.");
@@ -67,7 +85,11 @@ export function DeliveryList({
   function markPaid(row: DriverDelivery, toManager: boolean) {
     const change = (list: DriverDelivery[]) =>
       list.map((r) => (r.id === row.id ? { ...r, paid: true, paid_to_manager: toManager } : r));
-    apply(change, () => setPaid(row.id, true, toManager), toManager ? "Paid to the manager" : "Marked paid");
+    // Paid to the driver is the usual case; the toast offers the manager.
+    const done = toManager
+      ? "Paid to the manager"
+      : { text: "Paid to the driver", action: { label: "To manager", onClick: () => markPaid(row, true) } };
+    apply(change, () => setPaid(row.id, true, toManager), done);
   }
 
   const amount = tx ? peso(tx.gallons * tx.unit_price) : "";
@@ -104,8 +126,7 @@ export function DeliveryList({
       )}
       <ul className={cn("card divide-y divide-border", shown.length === 0 && "hidden")}>
         {shown.map((row) => (
-          <li key={row.id} className="row-in py-2 pr-1.5 pl-4">
-            <div className="flex items-center gap-1">
+          <li key={row.id} className="row-in flex items-center gap-1 py-2 pr-1.5 pl-4">
             <button
               type="button"
               aria-label={`${row.customerName}, ${gal(row.gallons)}. Tap to change gallons`}
@@ -140,9 +161,14 @@ export function DeliveryList({
                   <span className="text-[0.6875rem] font-medium">{row.paid_to_manager ? "to manager" : "to driver"}</span>
                 </button>
               ) : (
-                <span className="grid h-10 w-[5.5rem] shrink-0 place-items-center rounded-pill border border-danger-ink/30 bg-danger/10 text-sm font-semibold text-danger-ink">
+                <button
+                  type="button"
+                  aria-label={`${row.customerName}: unpaid. Tap when paid`}
+                  onClick={() => markPaid(row, false)}
+                  className="press h-10 w-[5.5rem] shrink-0 rounded-pill border border-danger-ink/30 bg-danger/10 text-sm font-semibold text-danger-ink"
+                >
                   Unpaid
-                </span>
+                </button>
               ))}
             <button
               type="button"
@@ -152,29 +178,6 @@ export function DeliveryList({
             >
               <Trash size={18} />
             </button>
-            </div>
-            {/* Paid to the driver is the usual case and the big button; the
-                manager, now and then, is the smaller one beside it. */}
-            {row.unit_price > 0 && !row.paid && (
-              <div className="flex gap-2 pt-2 pr-1">
-                <button
-                  type="button"
-                  aria-label={`${row.customerName} paid the driver`}
-                  onClick={() => markPaid(row, false)}
-                  className="press h-11 flex-[2] rounded-pill bg-success-ink text-[0.9375rem] font-semibold text-white"
-                >
-                  Paid
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${row.customerName} paid the manager`}
-                  onClick={() => markPaid(row, true)}
-                  className="press h-11 flex-1 rounded-pill border border-border bg-surface text-sm font-medium text-deep-blue"
-                >
-                  To manager
-                </button>
-              </div>
-            )}
           </li>
         ))}
       </ul>
