@@ -153,24 +153,25 @@ export function DeliveryList({
               <Trash size={18} />
             </button>
             </div>
-            {/* Who received the money is chosen right on the row, in one tap. */}
+            {/* Paid to the driver is the usual case and the big button; the
+                manager, now and then, is the smaller one beside it. */}
             {row.unit_price > 0 && !row.paid && (
               <div className="flex gap-2 pt-2 pr-1">
                 <button
                   type="button"
                   aria-label={`${row.customerName} paid the driver`}
                   onClick={() => markPaid(row, false)}
-                  className="press h-11 flex-1 rounded-pill border border-success-ink/30 bg-success/10 text-sm font-semibold text-success-ink"
+                  className="press h-11 flex-[2] rounded-pill bg-success-ink text-[0.9375rem] font-semibold text-white"
                 >
-                  Paid to driver
+                  Paid
                 </button>
                 <button
                   type="button"
                   aria-label={`${row.customerName} paid the manager`}
                   onClick={() => markPaid(row, true)}
-                  className="press h-11 flex-1 rounded-pill border border-deep-blue/30 bg-tint text-sm font-semibold text-deep-blue"
+                  className="press h-11 flex-1 rounded-pill border border-border bg-surface text-sm font-medium text-deep-blue"
                 >
-                  Paid to manager
+                  To manager
                 </button>
               </div>
             )}
