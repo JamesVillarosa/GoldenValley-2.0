@@ -104,7 +104,8 @@ export function DeliveryList({
       )}
       <ul className={cn("card divide-y divide-border", shown.length === 0 && "hidden")}>
         {shown.map((row) => (
-          <li key={row.id} className="row-in flex items-center gap-1 py-2 pr-1.5 pl-4">
+          <li key={row.id} className="row-in py-2 pr-1.5 pl-4">
+            <div className="flex items-center gap-1">
             <button
               type="button"
               aria-label={`${row.customerName}, ${gal(row.gallons)}. Tap to change gallons`}
@@ -122,20 +123,27 @@ export function DeliveryList({
                 {showDriver && row.driverName && <span className="min-w-0 truncate font-body">· {row.driverName}</span>}
               </span>
             </button>
-            {row.unit_price > 0 && (
-              <button
-                type="button"
-                aria-pressed={row.paid}
-                aria-label={`${row.customerName}: ${row.paid_to_manager ? "paid to the manager" : row.paid ? "paid" : "unpaid"}. Tap to change`}
-                onClick={() => (row.paid ? setAsk({ kind: "paid", tx: row }) : markPaid(row, false))}
-                className={cn(
-                  "press h-10 w-[4.75rem] shrink-0 rounded-pill border text-sm font-semibold",
-                  row.paid ? "border-success-ink/30 bg-success/10 text-success-ink" : "border-danger-ink/30 bg-danger/10 text-danger-ink"
-                )}
-              >
-                {row.paid_to_manager ? "Manager" : row.paid ? "Paid" : "Unpaid"}
-              </button>
-            )}
+            {row.unit_price > 0 &&
+              (row.paid ? (
+                <button
+                  type="button"
+                  aria-label={`${row.customerName}: paid to the ${row.paid_to_manager ? "manager" : "driver"}. Tap to change`}
+                  onClick={() => setAsk({ kind: "paid", tx: row })}
+                  className={cn(
+                    "press flex h-10 w-[5.5rem] shrink-0 flex-col items-center justify-center rounded-pill border text-sm leading-tight font-semibold",
+                    row.paid_to_manager
+                      ? "border-deep-blue/30 bg-tint text-deep-blue"
+                      : "border-success-ink/30 bg-success/10 text-success-ink"
+                  )}
+                >
+                  Paid
+                  <span className="text-[0.6875rem] font-medium">{row.paid_to_manager ? "to manager" : "to driver"}</span>
+                </button>
+              ) : (
+                <span className="grid h-10 w-[5.5rem] shrink-0 place-items-center rounded-pill border border-danger-ink/30 bg-danger/10 text-sm font-semibold text-danger-ink">
+                  Unpaid
+                </span>
+              ))}
             <button
               type="button"
               aria-label={`Remove ${row.customerName}`}
@@ -144,6 +152,28 @@ export function DeliveryList({
             >
               <Trash size={18} />
             </button>
+            </div>
+            {/* Who received the money is chosen right on the row, in one tap. */}
+            {row.unit_price > 0 && !row.paid && (
+              <div className="flex gap-2 pt-2 pr-1">
+                <button
+                  type="button"
+                  aria-label={`${row.customerName} paid the driver`}
+                  onClick={() => markPaid(row, false)}
+                  className="press h-11 flex-1 rounded-pill border border-success-ink/30 bg-success/10 text-sm font-semibold text-success-ink"
+                >
+                  Paid to driver
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${row.customerName} paid the manager`}
+                  onClick={() => markPaid(row, true)}
+                  className="press h-11 flex-1 rounded-pill border border-deep-blue/30 bg-tint text-sm font-semibold text-deep-blue"
+                >
+                  Paid to manager
+                </button>
+              </div>
+            )}
           </li>
         ))}
       </ul>
