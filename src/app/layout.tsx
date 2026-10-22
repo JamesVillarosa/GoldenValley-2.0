@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import { Toaster } from "sonner";
+import { AlarmGate } from "@/components/alarm";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import "./globals.css";
@@ -35,6 +36,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} h-full antialiased`}>
       <body className="flex min-h-dvh flex-col">
+        {/* Before main, so its banner sticks to the top of the screen. */}
+        <AlarmGate />
         <main className="flex flex-1 flex-col pb-[var(--nav-height)]">{children}</main>
         <BottomNav />
         <ServiceWorkerRegister />

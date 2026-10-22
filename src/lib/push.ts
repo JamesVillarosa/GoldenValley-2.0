@@ -2,13 +2,41 @@ import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { manilaToday, shiftDays } from "@/lib/dates";
 
-/** Push today's due summary to every subscribed phone. */
-export async function notifyDue(supabase: SupabaseClient) {
+interface Subscription {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+/** Sends one notification to every subscribed phone; returns how many got it. */
+export async function sendToAll(supabase: SupabaseClient, payload: string, subscriptions?: Subscription[]) {
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT ?? "mailto:owner@goldenvalley.local",
     process.env.VAPID_PUBLIC_KEY!,
     process.env.VAPID_PRIVATE_KEY!
   );
+  const subs = subscriptions ?? (await supabase.from("push_subscriptions").select("*")).data ?? [];
+  let sent = 0;
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload, {
+        urgency: "high",
+      });
+      sent++;
+    } catch (err) {
+      // 404/410: the phone unsubscribed or uninstalled the app.
+      const status = (err as { statusCode?: number }).statusCode;
+      if (status === 404 || status === 410) {
+        await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+      }
+    }
+  }
+  return sent;
+}
+
+/** Push today's due summary to every subscribed phone. */
+export async function notifyDue(supabase: SupabaseClient) {
 
   const today = manilaToday();
   const [{ data: due, error }, { data: drivers }, { data: subscriptions }] = await Promise.all([
@@ -37,18 +65,6 @@ export async function notifyDue(supabase: SupabaseClient) {
     url: "/due",
   });
 
-  let sent = 0;
-  for (const sub of subscriptions ?? []) {
-    try {
-      await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
-      sent++;
-    } catch (err) {
-      // 404/410: the phone unsubscribed or uninstalled the app.
-      const status = (err as { statusCode?: number }).statusCode;
-      if (status === 404 || status === 410) {
-        await supabase.from("push_subscriptions").delete().eq("id", sub.id);
-      }
-    }
-  }
+  const sent = await sendToAll(supabase, payload, subscriptions ?? []);
   return { due: rows.length, sent };
 }

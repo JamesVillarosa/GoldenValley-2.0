@@ -1,4 +1,4 @@
-const CACHE_NAME = "golden-valley-shell-v4";
+const CACHE_NAME = "golden-valley-shell-v5";
 // Pages sit behind the PIN, so only public files are precached; visited pages
 // are cached as they load (network first).
 const APP_SHELL = ["/manifest.json", "/icons/icon-192.png"];
@@ -50,6 +50,13 @@ self.addEventListener("push", (event) => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       data: { url: payload.url || "/due" },
+      // An alarm stays on screen, buzzes, and sounds again on every repeat.
+      ...(payload.alarm && {
+        tag: "gv-alarm",
+        renotify: true,
+        requireInteraction: true,
+        vibrate: [1000, 300, 1000, 300, 1000],
+      }),
     })
   );
 });

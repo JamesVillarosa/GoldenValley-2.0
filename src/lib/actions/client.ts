@@ -6,6 +6,7 @@ import * as transactions from "@/lib/actions/transactions";
 import * as drivers from "@/lib/actions/drivers";
 import * as reports from "@/lib/actions/reports";
 import * as auth from "@/lib/actions/auth";
+import * as alarm from "@/lib/actions/alarm";
 import { unwrapped } from "@/lib/result";
 
 export const saveCustomer = unwrapped(customers.saveCustomer);
@@ -23,3 +24,4 @@ export const addAdvance = unwrapped(reports.addAdvance);
 export const addExpense = unwrapped(reports.addExpense);
 export const deleteExpense = unwrapped(reports.deleteExpense);
 export const changePin = unwrapped(auth.changePin);
+export const markChecked = unwrapped(alarm.markChecked);
